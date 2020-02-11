@@ -127,8 +127,53 @@ Example: How many even numbers are in list
 )
 
 
+#| Divide
+Divide the input list l1 into two such that 
+first list contains the first n elements of l1
+second contains the rest of hte elements of l1
+I.e. the output is a pair of lists 
+
+Base Case: If N is 0: return an empty list
+Recursive Case: Else: divide the rest of the list by the value of n
+
+Divide `(2 a b c) 2
+--> ((2 a) (b c))
+Then where do we add the 1? We add it to the first list
+BUT if we do the car stuff, we lose the second element in the list
+So we need to include and pass the second element. Kind of weird.
+If we could store variables, then we would have just done that.
+
+|#
+(define (divide lst n)
+  (if (< n 1)  ; if n is 0
+      (list `() lst)  ; Base case
+      (list (cons (car lst) (car (divide (cdr lst) (- n 1))))
+            (cadr (divide (cdr lst ) (- n 1)))  ; cadr = 2nd element
+      )
+  )    
+)
+
+
+; Do the same thing as divide but split up better and runs more efficiently.
+(define (new_divide lst n )
+  (if (< n 1)
+      (list `() lst)
+      (divide_low (car lst) (new_divide (cdr lst) (- n 1)))
+  )
+)
+
+
+; With this function, we have just made divide from exponential to linear time. Super nice. Does the same as divide just better.
+; This is also a good technique for storing variables since we're not allowed to explicitly use variables
+(define (divide_low e pair)
+  (list (cons e (car pair))
+	(cadr pair))
+)
+
+
 #| Traces |#
 (trace iterator)
 (trace append_lambda_123)
 (trace length)
 (trace append)
+(trace divide)
