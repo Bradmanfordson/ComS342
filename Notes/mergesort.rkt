@@ -48,8 +48,8 @@ Recursive Case:
   )
 
 (define (new_merge pair)
-  (merge (mergesort (car pair))
-	 (mergesort (cadr pair))
+  (new_merge (new_mergesort (car pair))
+	 (new_mergesort (cadr pair))
 	 )
   )
 
