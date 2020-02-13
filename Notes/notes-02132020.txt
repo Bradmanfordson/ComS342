@@ -1,0 +1,14 @@
+Langauge Semantics:
+
+Defined language (the language you want to develop)
+Defining language (the language you will use to evaluate the defined language)
+
+Compiler:
+ defined language --> Target langauge. The programs in the target language can be directly executed on the computing environment where it was generated.
+
+Interpreter:
+ program written in defining language which does the following on the defined langauge:
+  Read-->Eval-->Print-->Loop
+
+
+
