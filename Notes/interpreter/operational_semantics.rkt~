@@ -1,0 +1,26 @@
+#lang racket
+(require racket/trace)
+
+;; expr --> number | ( + expr expr ) | ( - expr expr)
+
+(define (sem expr)
+  (cond
+    [ (number? expr) expr ]; return expr if it's a number
+    [ (arithmetic_operator? (car expr)) (arithmetic_semantics expr)]
+    )
+  )
+
+(define (arithmetic_operator? element)
+  (or (equal? element `+)
+      (equal? element `-)
+      )
+  )
+
+(define (arithmetic_semantics expr)
+  (cond
+    [ (equal? (car expr) `+) (+ (sem (cadr expr))
+                                (sem (cadr (cdr expr))))]
+    [ (equal? (car expr) `-) (- (sem (cadr expr))
+                                (sem (cadr (cdr expr))))]
+    )
+  )
