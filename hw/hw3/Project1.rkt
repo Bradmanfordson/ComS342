@@ -15,49 +15,56 @@
 (define (y_list lst return)(if (null? lst) return (y_list (cdr lst) (cons (cadr (car lst)) return))))  ; Return list of all Y elements in list of pairs
 #|----------------------------------------------------------------------------|#
 
-#|-------------------------------Calculate M----------------------------------|#
-(define (m x_list y_list)(/ (m_upper x_list y_list 0) (m_lower x_list 0)))  ; Calculate M
+#|-------------------------------Calculate M and C----------------------------|#
+(define (m x_list y_list xmean ymean)(/ (m_upper x_list y_list xmean ymean 0) (m_lower x_list xmean 0)))  ; Calculate M
 
-(define (m_upper x_list y_list return)  ; Calculate numerator for M
+(define (m_upper x_list y_list xmean ymean return)  ; Calculate numerator for M
   (if (< (length x_list 0) 1)
       return
-      (m_upper (cdr x_list) (cdr y_list) (string->number(
+      (m_upper (cdr x_list) (cdr y_list) xmean ymean (string->number(
                                                          real->decimal-string(+
                                                                               return
                                                                               (*
-                                                                                 (- (car x_list) (xmean))
-                                                                                 (- (car y_list) (ymean))))
+                                                                                 (- (car x_list) xmean)
+                                                                                 (- (car y_list) ymean)))
                                                                              5))))
   )
 
-(define (m_lower lst return)  ; Calculate denominator for M
+(define (m_lower lst xmean return)  ; Calculate denominator for M
   (if (< (length lst 0) 1)
       return
-      (m_lower (cdr lst) (string->number(
+      (m_lower (cdr lst) xmean (string->number(
                                          real->decimal-string(+
                                                               return
                                                               (square(-
                                                                       (car lst)
-                                                                      (xmean))))
+                                                                      xmean)))
                                                              5))))
   )
 
+(define (c lst xmean ymean)  ; return --> mean(y) - m * mean(x)
+  (-
+   ymean
+   (*
+    (m (x_list lst null) (y_list lst null) xmean ymean)
+    xmean))
+  )
 #|----------------------------------------------------------------------------|#
 
-#| DEV |#
+#|-------------------------------compute_mc----------------------------------|#
+(define (compute_mc lst)
+  (cons (m (x_list lst null) (y_list lst null) (mean (x_list lst null)) (mean (y_list lst null)))
+        (c lst (mean (x_list lst null)) (mean (y_list lst null))))
+  
+  )
+#|----------------------------------------------------------------------------|#
 
-
-#| SANDBOX |#
-
-
-
-#| TODO (ASK TEACHER)|#
-(define (xmean) (mean (x_list pts1 null)))  ; Is this a variable? Should ask the professor (TODO)
-(define (ymean) (mean (y_list pts1 null)))  ; Is this a variable? Should ask the professor (TODO)
 
 
 #| TRACES |#
 
 
 #| TESTS |#
-(m (x_list pts1 null) (y_list pts1 null))
+(compute_mc pts1)
+(compute_mc pts2)
+(compute_mc pts3)
