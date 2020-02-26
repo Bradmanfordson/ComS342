@@ -177,3 +177,5 @@ If we could store variables, then we would have just done that.
 (trace length)
 (trace append)
 (trace divide)
+
+(length `(1 2 3 4 5))
