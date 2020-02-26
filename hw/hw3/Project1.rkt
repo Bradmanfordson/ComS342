@@ -63,7 +63,7 @@
 
 #| TRACES |#
 
-
+ 
 #| TESTS |#
 (compute_mc pts1)
 (compute_mc pts2)
