@@ -53,7 +53,7 @@
 
 #|-------------------------------compute_mc----------------------------------|#
 (define (compute_mc lst)
-  (cons (m (x_list lst null) (y_list lst null) (mean (x_list lst null)) (mean (y_list lst null)))
+  (list (m (x_list lst null) (y_list lst null) (mean (x_list lst null)) (mean (y_list lst null)))
         (c lst (mean (x_list lst null)) (mean (y_list lst null))))
   
   )
