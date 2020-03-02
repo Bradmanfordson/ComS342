@@ -60,11 +60,59 @@
 #|----------------------------------------------------------------------------|#
 
 
+#|-------------------------------compute_e----------------------------------|#
+(define (e lst)
+  (*
+   (/ 1 (length lst 0)) ; 1/n
+   (sum_e
+    lst ; LIST
+    (x_list lst null) ; X_LIST
+    (y_list lst null) ; Y_LIST
+    (mean (x_list lst null)) ; XMEAN
+    (mean (y_list lst null)) ;YMEAN
+    (m (x_list lst null) (y_list lst null) (mean (x_list lst null)) (mean (y_list lst null))) ;M
+    (c lst (mean (x_list lst null)) (mean (y_list lst null)));C
+    0) ;RETURN
+   )
+  )
+
+(define (sum_e lst x_list y_list xmean ymean m c return)
+  (if (< (length x_list 0) 1)
+      return
+      (sum_e
+       lst
+       (cdr x_list)
+       (cdr y_list)
+       xmean
+       ymean
+       m
+       c
+       (+
+        return
+        (square
+         (-
+          (+
+           (*
+            m
+            (car x_list))
+           c)
+          (car y_list)))))
+      )
+)
+      
+#|----------------------------------------------------------------------------|#
+
+
 
 #| TRACES |#
+(trace e)
+(trace sum_e)
 
  
 #| TESTS |#
 (compute_mc pts1)
 (compute_mc pts2)
 (compute_mc pts3)
+
+(m (x_list pts1 null) (y_list pts1 null) (mean (x_list pts1 null)) (mean (y_list pts1 null)))
+(e pts1)
