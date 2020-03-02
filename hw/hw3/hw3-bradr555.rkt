@@ -13,9 +13,7 @@
 (define (sum lst return)(if (< (length lst 0) 1) return (sum (cdr lst) (+ return (car lst)))))  ; Tail recursion to compute sum of a list
 (define (x_list lst return)(if (null? lst) return (x_list (cdr lst) (cons (car (car lst)) return))))  ; Return list of all X elements in list of pairs
 (define (y_list lst return)(if (null? lst)return(y_list (cdr lst) (cons (cadr (car lst)) return)))) ; Return list of all Y elements in list of pairs
-(define (y_minus_hat y m x c)(- y (+ (* m x) c)))
 #|----------------------------------------------------------------------------|#
-
 
 #|-------------------------------Calculate M and C----------------------------|#
 (define (m x_list y_list xmean ymean)(/ (m_upper x_list y_list xmean ymean 0) (m_lower x_list xmean 0)))  ; Calculate M
@@ -51,7 +49,9 @@
     (m (x_list lst null) (y_list lst null) xmean ymean)
     xmean))
   )
+#|----------------------------------------------------------------------------|#
 
+#|-------------------------------compute_mc----------------------------------|#
 (define (compute_mc lst)
   (list (m (x_list lst null) (y_list lst null) (mean (x_list lst null)) (mean (y_list lst null)))
         (c lst (mean (x_list lst null)) (mean (y_list lst null))))
@@ -93,6 +93,8 @@
       )
 )
 
+
+(define (y_minus_hat y m x c)(- y (+ (* m x) c)))
 
 #|----------------------------------------------------------------------------|#
 
@@ -137,7 +139,7 @@
      (reverse (y_list lst null))
      m
      c
-    0.0)
+     0)
     )
    )
   )
@@ -152,7 +154,7 @@
      (reverse (y_list lst null))
      m
      c
-     0.0)
+     0)
     )
    )
   )
@@ -168,7 +170,7 @@
     (mean (y_list lst null)) ;YMEAN
     m;M
     c;C
-    0.0) ;RETURN
+    0) ;RETURN
    )
   )
 
