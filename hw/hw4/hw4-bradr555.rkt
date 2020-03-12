@@ -13,130 +13,188 @@
 #|----------------------------------------------------------------------------|#
 
 
-#|------------------------------- Finished -----------------------------------|#
-(define (arithop? el)
+(define (synchk program)
+  (expr? program `())
+  )
+
+(define (expr? program function)
+  (or (number? program)
+      (symbol? program)
+      (op_expr? program function)
+      (func_expr? program function)
+      (apply_func? program function))
+  )
+
+#| Operation logic |#
+(define (arith_op? el)
   (or (equal? el `+)
       (equal? el `-)
       (equal? el `*)
       (equal? el `/)))
 
-(define (cond? el)
-    (or (equal? el `and)
-        (equal? el `or)
-        (equal? el `not)))
 
-(define (bcond? el)
-  (or (equal? el `gt)
-      (equal? el `lt)
-      (equal? el `eq)))
+(define (op_expr? expr function)
+  (or (arith_expr? expr function)
+      (cond_expr?  expr function)
+      (var_expr?   expr function))
+  )
 
-#|----------------------------------------------------------------------------|#
+(define (arith_expr? expr function)
+  (and (equal?    (length expr) 3)
+       (arith_op? (first expr))
+       (expr?     (second expr) function)
+       (expr?     (third expr)  function)
+       )
+  )
 
-
-
-
-
-#|------------------------------- NOT WORKING -----------------------------------|#
-
-(define (arithmetic_semantics expr env)
-  (cond
-    [ (equal? (car expr) `+) (+ (sem (cadr expr) env)
-                                (sem (cadr (cdr expr)) env)) ]
-    
-    [ (equal? (car expr) `-) (- (sem (cadr expr) env)
-                                (sem (cadr (cdr expr)) env)) ]
-    
-    [ (equal? (car expr) `*) (* (sem (cadr expr) env)
-                                (sem (cadr (cdr expr)) env)) ]
-    
-    [ (equal? (car expr) `/) (/ (sem (cadr expr) env)
-                                (sem (cadr (cdr expr)) env)) ]
-    )
+(define (cond_expr? expr function)
+  (and (equal? (length expr) 3)
+       (ccond? (first expr)  function)
+       (expr?  (second expr) function)
+       (expr?  (third expr)  function)
+       )
   )
 
 
-(define (conditional_semantics expr env)
+(define (ccond? expr function)
+  (if (not (list? expr))
+      false
+      (if (bcond? expr function)
+          true
+          (if (equal? (length expr) 2)
+              (and (equal? (first expr) `not)
+                   (ccond? (second expr) function))
+              (if (not (equal? (length expr) 3))
+                  false
+                  (or (and (equal? (first expr) `or)
+                           (ccond? (second expr) function)
+                           (ccond? (third expr)  function))
+                      (and (equal? (first expr) `and)
+                           (ccond? (second expr) function)
+                           (ccond? (third expr)  function))
+                      )
+                  )
+              )
+          )
+      )
+  )
+
+(define (bcond? expr function)
+  (if (not (equal? (length expr) 3))
+      false
+      (if (not (or (equal? (first expr) `gt)
+                   (equal? (first expr) `lt)
+                   (equal? (first expr) `eq)))
+          false
+          (and (expr? (second expr) function)
+               (expr? (third expr)  function))
+          )
+      )
+  )
+
+(define (func_expr? expr function)
+  (and (equal? (length expr) 3)
+       (equal? (first expr) 'fun) ; may need to change 'fun to 'program
+       (func_assign? (second expr) (append function (first (second expr))))
+       (expr? (third expr) (append function (first (second expr))))
+       )
+  )
+
+(define (func_assign? expr function)
+  (and (equal? (length expr) 2)
+       (equal? (length (first expr)) 2)
+       (symbol? (second expr))
+       (formal_params? (second (first expr)))
+       (expr? (second expr) function)
+       )
+  )
+
+(define (formal_params? expr)
   (cond
-    [ (equal? (car expr) `or)  (or (conditional_semantics (cadr expr) env)         ; Pull x in (or x y)
-                                   (conditional_semantics (cadr (cdr expr)) env))] ; Pull y in (or x y)
-    
-    [ (equal? (car expr) `and) (and (conditional_semantics (cadr expr) env)         ; Pull x in (or x y)
-                                    (conditional_semantics (cadr (cdr expr)) env))] ; Pull y in (or x y)
-    
-    [ (equal? (car expr) `not) (not (cadr expr)) ] ; not of x in (not x)
-
-    [ (equal? (car expr) `gt)  (> (sem (cadr expr) env)
-                                  (sem (cadr (cdr expr)) env)) ]
-
-    [ (equal? (car expr) `lt)  (< (sem (cadr expr) env)
-                                  (sem (cadr (cdr expr)) env)) ]
-
-    [ (equal? (car expr) `eq)  (equal? (sem (cadr expr) env)
-                                       (sem (cadr (cdr expr)) env)) ]
+    [ (not (list? expr))              false ]
+    [ (null? expr)                    true  ]
+    [ (formal_param_list? expr)       true  ]
+    [ (not (formal_param_list? expr)) false ]
     )
   )
 
-(define (sem expr env)
-  (cond
-    [ (number? expr)                            expr ]
-    
-    ;[ (symbol? expr)                            (findvalue expr env)] ;? what do?
-    
-    [ (arithop? (car (car expr)))         (arithmetic_semantics expr env)]
-    
-    ;[ (equal? (car expr) `var)                  (sem (caadr expr) (conditional_semantics (cadr expr) env))]
-    
-    ;[ (conditional_operator? (car expr))        (if (conditional_semantics (car expr) env)
-                                                    ;(sem (cadr  expr) env)
-                                                    ;(sem (caadr expr) env))]
-    )
-  )
-#|----------------------------------------------------------------------------|#
-
-
-
-
-
-
-
-#|------------------------------- Synchk (not working) -------------------------------------|#
-(define (synchk expr)
-  (cond
-    [ (or (symbol? expr)
-          (number? expr)
-          (list? expr))
-      true ]
-    
-    [ (and (list? expr) (equal? (length expr) 2)) (if (or
-                                                       (equal? (first expr) `decl)
-                                                       (equal? (first expr) `not))
-                                                      (synchk (second expr))
-                                                      false) ]
-    
-    [ (and (list? expr) (equal? (length expr) 3)) (if (or (equal? (first expr) `+)
-                                                          (equal? (first expr) `-)
-                                                          (equal? (first expr) `*)
-                                                          (equal? (first expr) `/)
-                                                          (equal? (first expr) `or)
-                                                          (equal? (first expr) `and)
-                                                          (equal? (first expr) `not)
-                                                          (equal? (first expr) `gt)
-                                                          (equal? (first expr) `lt)
-                                                          (equal? (first expr) `eq)
-                                                          (equal? (first expr) `assign); Prolly have to do more
-                                                          (equal? (first expr) `if)    ; Prolly have to do more
-                                                          (equal? (first expr) `while) ; Prolly have to do more 
-                                                          )
-                                                      (and (synchk (second expr))
-                                                           (synchk (third expr)))
-                                                      false) ]
-    [ else false ]
-    )
+(define (formal_param_list? expr)
+  (if (equal? (length expr) 1)
+      (symbol? (first expr))
+      (and (symbol? (first expr)) (formal_param_list? (cdr expr)))
+      )
   )
 
-   
-#|----------------------------------------------------------------------------|#
+(define (apply_func? expr function)
+  (and (equal? (length expr) 2)
+       (equal? (length (second expr)) 2)
+       (equal? (first expr) `apply) ; may need to rename this
+       (symbol? (first (second expr)))
+       (args? (second (second expr)) function)
+       (match? (second expr) function)
+       )
+  )
 
+
+(define (args? expr function)
+  (cond
+    [ (not (list? expr))              false ]
+    [ (null? expr)                    true  ]
+    [ (arg_list? expr function)       true  ] 
+    [ (not (arg_list? expr function)) false ])
+  )
+
+(define (match? expr function)
+  (if (null? function)
+      false
+      (if (and (equal? (first expr) (first function))
+               (equal? (length (second expr)) (length (second function))))
+          true
+          (match? expr (cddr function))
+          )
+      )
+  )
+
+(define (arg_list? expr function)
+  (if (equal? (length expr) 1)
+      (expr? (first expr) function)
+      (and (expr? (first expr) function)
+           (arg_list? (cdr expr) function)))
+  )
+
+(define (var_expr? expr function)
+  (or (and (equal? (length expr) 3)
+           (equal? (first expr) `var)
+           (var_assigned? (second expr) function)
+           (expr? (third expr) function))
+      (and (equal? (length expr) 2)
+           (var_assigned? expr function)))
+  )
+
+(define (var_assigned? expr function)
+  (if (null? expr)
+      false
+      (var_assigned_seq? expr function))
+  )
+
+(define (var_assigned_seq? expr function)
+  (if (not (list? expr))
+      false
+      (if (null? expr)
+          true
+          (if (not (list? (first expr)))
+              (and (equal? (length expr) 2)
+                   (not (equal? (car expr) `apply))
+                   (symbol? (first expr))
+                   (expr? (second expr) function))
+              (and (equal? (length (first expr)) 2)
+                   (symbol? (first (first expr)))
+                   (expr? (second (first expr)) function)
+                   (var_assigned_seq? (cdr expr) function))
+              )
+          )
+      )
+  )
 
 
 #|------------------------------- Traces n Tests------------------------------|#
@@ -145,39 +203,48 @@
 
 ; TEST for SYNCHK
 (require "synchk_test.rkt")
-(synchk program1)
-(synchk program2)
-(synchk program3)
-(synchk program4)
-(synchk program5)
-(synchk program6)
-(synchk program7)
-(synchk program8)
-(synchk program9)
-(synchk program10)
-(synchk program11)
-(synchk program12)
-(synchk program13)
-(synchk program14)
-(synchk program15)
-(synchk program16)
-(synchk program17)
-(synchk program18)
-(synchk program19)
-(synchk program20)
-(synchk program21)
-(synchk program22)
-(synchk program23)
-(synchk program24)
-(synchk program25)
-(synchk program26)
-(synchk program27)
-(synchk program28)
-(synchk program29)
-(synchk program30)
-(synchk program31)
-(synchk program32)
-(synchk program33)
+
+(print false)(synchk program1)
+(print false)(synchk program2)
+(print false)(synchk program3)
+
+(display "\nDecl Test\n")
+(print false)(synchk program4)
+(print false)(synchk program5)
+(print true)(synchk program6)
+
+(display "\nAssign Test\n")
+(print true)(synchk program7)
+(print false)(synchk program8)
+(print false)(synchk program9)
+(print false)(synchk program10)
+(print false)(synchk program11)
+(print false)(synchk program12)
+(print true)(synchk program13)
+(print false)(synchk program14)
+(print false)(synchk program15)
+(print true)(synchk program16)
+(print false)(synchk program17)
+
+(display "\nIF Test\n")
+(print false)(synchk program18)
+(print true)(synchk program19)
+(print true)(synchk program20)
+(print true)(synchk program21)
+(print false)(synchk program22)
+(print false)(synchk program23)
+(print false)(synchk program24)
+(print true)(synchk program25)
+
+(display "\nWhile Test\n")
+(print false)(synchk program26)
+(print true)(synchk program27)
+(print true)(synchk program28)
+(print true)(synchk program29)
+(print false)(synchk program30)
+(print false)(synchk program31)
+(print false)(synchk program32)
+(print false)(synchk program33)
 
 
 #|----------------------------------------------------------------------------|#
