@@ -12,20 +12,42 @@
 (define (third lst)  (second (cdr lst)))
 #|----------------------------------------------------------------------------|#
 
+(define (test program)
+  (if (and (list? program)         ; Is the program a list?
+           (equal? (length program) 1)) ; Does the program list have more than 1 element?
+      #| THEN |# (expr? program `())
+      #| ELSE |# (if (and (list? (car program))     ; Is the first element in the program list also a list?
+                          (list? (cdr program)))    ; Is the rest of the program a list?
+                    #| THEN |# (and (expr? (car program) `())
+                                    (test (cdr program)))
+                    #| ELSE |# false)
 
-(define (synchk program)
-  (expr? program `())
+                 )
+  )
+
+(define (synchk program)  
+  (if (and (list? program)                 ; if
+           (< (length program) 1))
+      (expr? (car program) `()); do
+      (if (list? (car program)); else
+          (and (expr? (car program) `())      
+               (synchk (cdr program)))
+          false
+      )
+      )
   )
 
 (define (expr? program function)
-  (or (number? program)
-      (symbol? program)
+  (or (number?  program)
+      (symbol?  program)
+      (decl?    program function)
       (op_expr? program function)
-      (func_expr? program function)
-      (apply_func? program function))
+      ;(func_expr? program function)
+      ;(apply_func? program function)
+      )
   )
 
-#| Operation logic |#
+#| Op |#
 (define (arith_op? el)
   (or (equal? el `+)
       (equal? el `-)
@@ -39,6 +61,7 @@
       (var_expr?   expr function))
   )
 
+#| ArithExpr |#
 (define (arith_expr? expr function)
   (and (equal?    (length expr) 3)
        (arith_op? (first expr))
@@ -47,6 +70,7 @@
        )
   )
 
+#| CondExpr |# 
 (define (cond_expr? expr function)
   (and (equal? (length expr) 3)
        (ccond? (first expr)  function)
@@ -72,6 +96,9 @@
                       (and (equal? (first expr) `and)
                            (ccond? (second expr) function)
                            (ccond? (third expr)  function))
+                      (and (equal? (first expr) `not)
+                           (ccond? (second expr) function)
+                           (ccond? (third expr)  function))
                       )
                   )
               )
@@ -79,6 +106,7 @@
       )
   )
 
+#| BoolCond |# 
 (define (bcond? expr function)
   (if (not (equal? (length expr) 3))
       false
@@ -92,6 +120,8 @@
       )
   )
 
+
+#| Function stuff (dont think this is needed) |#
 (define (func_expr? expr function)
   (and (equal? (length expr) 3)
        (equal? (first expr) 'fun) ; may need to change 'fun to 'program
@@ -109,6 +139,7 @@
        )
   )
 
+#| Formal parameters (Dont think this is needed) |#
 (define (formal_params? expr)
   (cond
     [ (not (list? expr))              false ]
@@ -135,7 +166,7 @@
        )
   )
 
-
+#| Function args (prolly not needed) |#
 (define (args? expr function)
   (cond
     [ (not (list? expr))              false ]
@@ -162,6 +193,7 @@
            (arg_list? (cdr expr) function)))
   )
 
+#| Var |#
 (define (var_expr? expr function)
   (or (and (equal? (length expr) 3)
            (equal? (first expr) `var)
@@ -177,6 +209,16 @@
       (var_assigned_seq? expr function))
   )
 
+
+#| Decl |#
+(define (decl? expr function)
+  (and (equal? (length expr) 2)
+       (equal? (first expr) `decl)
+       (symbol? (second expr)))
+  )
+
+
+#| Sequences |#
 (define (var_assigned_seq? expr function)
   (if (not (list? expr))
       false
@@ -196,13 +238,15 @@
       )
   )
 
-
 #|------------------------------- Traces n Tests------------------------------|#
 
 
 
 ; TEST for SYNCHK
 (require "synchk_test.rkt")
+(trace synchk)
+(trace test)
+(trace expr?)
 
 (print false)(synchk program1)
 (print false)(synchk program2)
