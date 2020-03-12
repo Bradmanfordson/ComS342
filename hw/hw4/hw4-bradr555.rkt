@@ -11,9 +11,8 @@
 (define (second lst) (cadr lst))
 (define (third lst)  (second (cdr lst)))
 #|----------------------------------------------------------------------------|#
-(define (test program) true)
 
-
+#|------------------------------- Synchk -------------------------------------|#
 (define (synchk program)
   (if (and (list? program)         ; Is the program a list?
            (equal? (length program) 1)) ; Does the program list have more than 1 element?
@@ -21,11 +20,8 @@
       #| ELSE |# (if (and (list? (car program))     ; Is the first element in the program list also a list?
                           (list? (cdr program)))    ; Is the rest of the program a list?
                     #| THEN |# (and (expr? (car program))
-                                    (test (cdr program)))
-                    #| ELSE |# false)
-
-                 )
-  )
+                                    (synchk (cdr program)))
+                    #| ELSE |# false )))
 
 
 (define (expr? expr)
@@ -35,79 +31,61 @@
       (assign?  expr)
       (op_expr? expr)
       (if?      expr)
-      (while?   expr)
-      )
-  )
-
-(define (if? expr)
-  (and (equal? (length expr)   3)
-       (equal? (first  expr) `if)
-       (ccond? (second expr)    )
-       (synchk (third  expr)    ))
-  )
-
-(define (while? expr)
-  (and (equal? (length expr)      3)
-       (equal? (first  expr) `while)
-       (ccond? (second expr)       )
-       (synchk (third  expr)       ))
-  )
+      (while?   expr)))
 
 #| Decl |#
 (define (decl? expr)
   (and (equal?  (length expr)     2)
        (equal?  (first  expr) `decl)
-       (symbol? (second expr)      ))
-  )
+       (symbol? (second expr)      )))
 
 #| Assign |#
 (define (assign? expr)
   (and (equal?      (length expr)       3)
        (equal?      (first  expr) `assign)
        (symbol?     (second expr)        )
-       (arith_expr? (third  expr)        ))
-  )
+       (arith_expr? (third  expr)        )))
 
-#| Op |#
+#|OP EXPR|#
+(define (op_expr? expr)
+  (or (arith_expr? expr)
+      (cond_expr?  expr)))
+
+#| IF |#
+(define (if? expr)
+  (and (equal? (length expr)   3)
+       (equal? (first  expr) `if)
+       (ccond? (second expr)    )
+       (synchk (third  expr)    )))
+
+#| WHILE |# 
+(define (while? expr)
+  (and (equal? (length expr)      3)
+       (equal? (first  expr) `while)
+       (ccond? (second expr)       )
+       (synchk (third  expr)       )))
+
+#| Helpers for Symchk functions|#
 (define (arith_op? el)
   (or (equal? el `+)
       (equal? el `-)
       (equal? el `*)
-      (equal? el `/))
-  )
+      (equal? el `/)))
 
-
-(define (op_expr? expr)
-  (or (arith_expr? expr)
-      (cond_expr?  expr)
-      )
-  )
-
-#| ArithExpr |#
 (define (arith_expr? expr )
   (or (number? expr)
       (symbol? expr)
       (and (equal?(length expr) 3)
            (arith_op?   (first  expr))
            (arith_expr? (second expr))
-           (arith_expr? (third  expr)))
-      )
-  )
+           (arith_expr? (third  expr)))))
 
-#| CondExpr |# 
 (define (cond_expr? expr)
   (or (bcond? expr)
       (and (equal? (length expr) 3)
            (ccond? (first  expr)  )
            (expr?  (second expr)  )
-           (expr?  (third  expr)  )))
-  )
-
-(define (ccond?old expr)
-  (or (equal? expr `and)
-      (equal? expr `or )
-      (equal? expr `not))
-  )
+           (expr?  (third  expr)  ))))
 
 (define (ccond? expr )
   (if (not (list? expr))
@@ -124,15 +102,8 @@
                            (ccond? (third  expr)     ))
                       (and (equal? (first  expr) `and)
                            (ccond? (second expr)     )
-                           (ccond? (third  expr)     ))
-                      )
-                  )
-              )
-          )
-      )
-  )
-
-#| BoolCond |# 
+                           (ccond? (third  expr)     ))))))))
+ 
 (define (bcond? expr )
   (if (not (equal? (length expr) 3))
       false
@@ -141,127 +112,14 @@
                    (equal? (first expr) `eq)))
           false
           (and (expr? (second expr) )
-               (expr? (third  expr) ))
-          )
-      )
-  )
+               (expr? (third  expr) )))))
 
-
-#|  stuff (dont think this is needed) |#
-(define (func_expr? expr )
-  (and (equal? (length expr) 3)
-       (equal? (first expr) 'fun) ; may need to change 'fun to 'program
-       (func_assign? (second expr) (append  (first (second expr))))
-       (expr? (third expr) (append  (first (second expr))))
-       )
-  )
-
-(define (func_assign? expr )
-  (and (equal? (length expr) 2)
-       (equal? (length (first expr)) 2)
-       (symbol? (second expr))
-       (formal_params? (second (first expr)))
-       (expr? (second expr) )
-       )
-  )
-
-#| Formal parameters (Dont think this is needed) |#
-(define (formal_params? expr)
-  (cond
-    [ (not (list? expr))              false ]
-    [ (null? expr)                    true  ]
-    [ (formal_param_list? expr)       true  ]
-    [ (not (formal_param_list? expr)) false ]
-    )
-  )
-
-(define (formal_param_list? expr)
-  (if (equal? (length expr) 1)
-      (symbol? (first expr))
-      (and (symbol? (first expr)) (formal_param_list? (cdr expr)))
-      )
-  )
-
-(define (apply_func? expr )
-  (and (equal? (length expr) 2)
-       (equal? (length (second expr)) 2)
-       (equal? (first expr) `apply) ; may need to rename this
-       (symbol? (first (second expr)))
-       (args? (second (second expr)) )
-       (match? (second expr) )
-       )
-  )
-
-#|  args (prolly not needed) |#
-(define (args? expr )
-  (cond
-    [ (not (list? expr))              false ]
-    [ (null? expr)                    true  ]
-    [ (arg_list? expr )       true  ] 
-    [ (not (arg_list? expr )) false ])
-  )
-
-(define (match? expr )
-  (if (null? )
-      false
-      (if (and (equal? (first expr) (first ))
-               (equal? (length (second expr)) (length (second ))))
-          true
-          (match? expr (cddr ))
-          )
-      )
-  )
-
-(define (arg_list? expr )
-  (if (equal? (length expr) 1)
-      (expr? (first expr) )
-      (and (expr? (first expr) )
-           (arg_list? (cdr expr) )))
-  )
-
-#| Var |#
-(define (var_expr? expr )
-  (or (and (equal? (length expr) 3)
-           (equal? (first expr) `var)
-           (var_assigned? (second expr) )
-           (expr? (third expr) ))
-      (and (equal? (length expr) 2)
-           (var_assigned? expr )))
-  )
-
-(define (var_assigned? expr )
-  (if (null? expr)
-      false
-      (var_assigned_seq? expr ))
-  )
+#|------------------------------- End of Synchk ------------------------------|#
 
 
 
-
-
-#| Sequences |#
-(define (var_assigned_seq? expr )
-  (if (not (list? expr))
-      false
-      (if (null? expr)
-          true
-          (if (not (list? (first expr)))
-              (and (equal? (length expr) 2)
-                   (not (equal? (car expr) `apply))
-                   (symbol? (first expr))
-                   (expr? (second expr) ))
-              (and (equal? (length (first expr)) 2)
-                   (symbol? (first (first expr)))
-                   (expr? (second (first expr)) )
-                   (var_assigned_seq? (cdr expr) ))
-              )
-          )
-      )
-  )
 
 #|------------------------------- Traces n Tests------------------------------|#
-
-
 
 ; TEST for SYNCHK
 (require "synchk_test.rkt")
@@ -311,8 +169,33 @@
 (print 30)(print false)(synchk program30)
 (print 31)(print false)(synchk program31)
 (print 32)(print false)(synchk program32)
-(print 33)(print false)(synchk program33)
+(print 33)(print true)(synchk program33)
 
 
-#|----------------------------------------------------------------------------|#
+(display "\n ---------- SEM TESTS ---------- \n")
+(display "\n34: ")(synchk program34)
+(display "\n35: ")(synchk program35)
+(display "\n36: ")(display "'((x 0) (y 1)) => '((x 6) (y 1)) \n\t")(synchk program36)
+(display "\n37: ")(display "'() => '((y 7) (x 8)) \n\t")(synchk program37)
+(display "\n38: ")(display "'() => '((y 6) (x 7)) \n\t")(synchk program38)
+(display "\n39: ")(display "'() => '((y 7) (x 6)) \n\t")(synchk program39)
+(display "\n40: ")(display "'() => '((y 6) (x 8)) \n\t")(synchk program40)
+(display "\n41: ")(display "'() => '((y 7) (x 6)) \n\t")(synchk program41)
+(display "\n42: ")(display "'() => '((y 7) (x 8)) \n\t")(synchk program42)
+(display "\n43: ")(display "'() => '((y 7) (x 8)) \n\t")(synchk program43)
+(display "\n44: ")(display "'() => '((y 6) (x 6)) \n\t")(synchk program44)
+(display "\n45: ")(display "'() => '((z 5) (y 7) (x 8)) \n\t")(synchk program45)
+(display "\n46: ")(display "'() => '((z 5) (y 7) (x 6)) \n\t")(synchk program46)
+(display "\n47: ")(display "'() => '((z 7) (y 5) (x 6)) \n\t")(synchk program47)
+(display "\n49: ")(display "'() => '((y 7) (x 6)) \n\t")(synchk program49)
+(display "\n50: ")(display "'() => '((y 6) (x 8)) \n\t")(synchk program50)
+(display "\n51: ")(display "'() => '((y 2) (x 4)) \n\t")(synchk program51)
+(display "\n52: ")(display "'() => '((y 2) (x 0)) \n\t")(synchk program52)
+(display "\n53: ")(display "'() => '((y 2) (x 6)) \n\t")(synchk program53)
+(display "\n54: ")(display "'() => '((y 2) (x 1)) \n\t")(synchk program54)
+(display "\n55: ")(display "'() => '((y 3) (x 10)) \n\t")(synchk program55)
+(display "\n56: ")(display "'() => '((y 256) (x 0)) \n\t")(synchk program56)
+(display "\n57: ")(display "'() => '((y 4) (x 4)) \n\t")(synchk program57)
+(display "\n58: ")(display "'() => '((y 4) (x 4)) \n\t")(synchk program58)
 
+#|--------------------------------- FIN -------------------------------------|#
