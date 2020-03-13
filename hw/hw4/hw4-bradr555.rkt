@@ -120,18 +120,6 @@
 
 
 #|------------------------------- Sem ----------------------------------------|#
-(define (sem_old program env); think this is finished?
-  (if (and (list? program)
-           (equal? (length program) 1 ))
-      #| THEN |# (apply (car program) env)
-      #| ELSE |# (sem   (cdr program) (apply (car program) env))))
-
-(define (apply expr env)
-  (cond
-    [ (decl?   expr) (decl      expr env) ]
-    [ (assign? expr) (assign    expr env) ]
-    [ (if?     expr) (do_if     expr env) ]
-    [ (while?  expr) (do_while  expr env) ]))
 
 
 (define (var_in_env? var env) ; NOT NEEDED BUT WORKING: T/F if a specific variable is in the env
@@ -153,35 +141,6 @@
               (second (first env))
               (var_value var (cdr env))))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ^ FINISHED ^ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define (sem program env); think this is finished?
-  (if (and (list? program)
-           (equal? (length program) 1 ))
-      #| THEN |# (semantics (car program) env)
-      #| ELSE |# (sem (cdr program) (semantics (car program) env))))
-
-(define (semantics expr env)
-  (cond
-    [ (number?  expr)                     expr                             ]
-    [ (symbol?  expr)                     (var_value expr env)             ]
-    [ (equal? (first expr) `decl)   (decl expr env)        ]
-    [ (equal? (first expr) `assign) (assign expr env)      ]
-    [ (equal? (first expr) `if)     (true)]
-    [ (equal? (first expr) `while)  (true)]
-    [ (arith_op? (car expr))              (semarith expr env)              ]
-    [ (condop?  (car expr))         (if (semcond (car expr) env)
-                                              (semantics (cadr expr)       env)
-                                              (semantics (cadr (cdr expr)) env)) ]))
-
-(define (update_env val env)
-  (if (null? env)
-      (cons (list (first val) (second val)) env)
-      (if (not (var_in_env? (first val) env))
-          (cons (list (first val) (second val)) env)
-          (if (equal? (first val) (first (first env)))
-              (cons (list (first val) (second val)) (cdr env))
-              false ; TODO -- Actually fix this shit
-              ))))
 
 #| DECL |#
 (define (decl expr env)
@@ -218,8 +177,7 @@
                                     (semantics (cadr (cdr expr)) env)) ]
     [ (equal? (car expr) `eq)  (=   (semantics (cadr expr) env)
                                     (semantics (cadr (cdr expr)) env)) ]
-    [ (equal? (car expr) `not) (not (semantics (cadr expr) env)
-                                    (semantics (cadr (cdr expr)) env)) ]
+    [ (equal? (car expr) `not) (not (semantics (cadr expr) env))       ]
     [ (equal? (car expr) `and) (and (semantics (cadr expr) env)
                                     (semantics (cadr (cdr expr)) env)) ]
     [ (equal? (car expr) `or)  (or  (semantics (cadr expr) env)
@@ -233,10 +191,46 @@
       (equal? el 'gt )
       (equal? el 'eq )))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ^ FINISHED ^ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(define (sem program env); think this is finished?
+  (if (and (list? program)
+           (equal? (length program) 1 ))
+      #| THEN |# (semantics (car program) env)
+      #| ELSE |# (sem (cdr program) (semantics (car program) env))))
+
+(define (semantics expr env)
+  (cond
+    [ (number?  expr)                     expr                             ]
+    [ (symbol?  expr)                     (var_value expr env)             ]
+    [ (equal? (first expr) `decl)   (decl expr env)        ]
+    [ (equal? (first expr) `assign) (assign expr env)      ]
+    [ (equal? (first expr) `if)     (do_if expr env)]
+    [ (equal? (first expr) `while)  (do_while expr env)]
+    [ (arith_op? (car expr))              (semarith expr env)              ]
+    [ (condop?  (car expr))         (if (semcond expr env)
+                                        (semantics (cadr expr) env)
+                                        (semantics (cadr (cdr expr)) env)) ]))
+
+(define (update_env val env)
+  (if (null? env)
+      (cons (list (first val) (second val)) env)
+      (if (not (var_in_env? (first val) env))
+          (cons (list (first val) (second val)) env)
+          (if (equal? (first val) (first (first env)))
+              (cons (list (first val) (second val)) (cdr env))
+              (cons (car env) (update_env val (cdr env))) ; TODO -- Actually fix this shit
+              ))))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(define (do_if expr env) true)
+(define (do_if expr env)
+  (if (semcond (second expr) env)
+      (sem (third expr) env)
+      false ; TODO
+  )
+  )
 (define (do_while expr env) true)
 
 #|------------------------------- End of Sem ---------------------------------|#
@@ -296,8 +290,11 @@
 ;(print 32)(print false)(synchk program32)
 ;(print 33)(print true) (synchk program33)
 
+;(sem `((if (or (gt 6 6) (lt 7 7))((decl x)(assign x 8)))) `())
 
-;(display "\n ---------- SEM TESTS ---------- \n")
+;(sem `((if (not (gt 1 2)) ((decl x) (assign x 10)))) `())
+
+(display "\n ---------- SEM TESTS ---------- \n")
 (display "\n34a: ")(sem program34 `())
 (display "34b: ")  (sem program34 `((y 0)))
 (display "34c: ")  (sem program34 `((x 3)))
@@ -305,7 +302,6 @@
 (display "\n35a: ")(sem program35 `((x 0)))
 (display "35b: ")  (sem program35 `((x 1)))
 (display "35c: ")  (sem program35 `((x -1)))
-
 (display "\n36: ")(display "'((x 0) (y 1)) => '((x 6) (y 1)) \n\t")(sem program36 '((x 0) (y 1)))
 (display "\n37: ")(display "'() => '((y 7) (x 8)) \n\t")(sem program37 `())
 (display "\n38: ")(display "'() => '((y 6) (x 7)) \n\t")(sem program38 `())
