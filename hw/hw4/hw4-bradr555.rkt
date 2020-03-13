@@ -13,7 +13,7 @@
 #|----------------------------------------------------------------------------|#
 
 #|------------------------------- Synchk -------------------------------------|#
-(define (synchkasdf program)
+(define (synchk program)
   (if (and (list? program)         ; Is the program a list?
            (equal? (length program) 1)) ; Does the program list have more than 1 element?
       #| THEN |# (expr? (car program))
@@ -120,6 +120,20 @@
 
 
 #|------------------------------- Sem ----------------------------------------|#
+(define (sem_old program env); think this is finished?
+  (if (and (list? program)
+           (equal? (length program) 1 ))
+      #| THEN |# (apply (car program) env)
+      #| ELSE |# (sem   (cdr program) (apply (car program) env))))
+
+(define (apply expr env)
+  (cond
+    [ (decl?   expr) (decl      expr env) ]
+    [ (assign? expr) (assign    expr env) ]
+    [ (if?     expr) (do_if     expr env) ]
+    [ (while?  expr) (do_while  expr env) ]))
+
+
 (define (var_in_env? var env) ; NOT NEEDED BUT WORKING: T/F if a specific variable is in the env
   (if (null? env)
       false
@@ -130,59 +144,100 @@
               (var_in_env? var (cdr env))))))
 
 
-(define (synchk program)
-  (if (and (list? program)         ; Is the program a list?
-           (equal? (length program) 1)) ; Does the program list have more than 1 element?
-      #| THEN |# (expr? (car program))
-      #| ELSE |# (if (and (list? (car program))     ; Is the first element in the program list also a list?
-                          (list? (cdr program)))    ; Is the rest of the program a list?
-                    #| THEN |# (and (expr? (car program))
-                                    (synchk (cdr program)))
-                    #| ELSE |# false )))
+(define (var_value var env)
+  (if (null? (first env))
+      `()
+      (if (and (equal? (length env) 1))
+          (second (first env))
+          (if (equal? var (first (first env)))
+              (second (first env))
+              (var_value var (cdr env))))))
 
-(define (sem program env)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ^ FINISHED ^ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(define (sem program env); think this is finished?
   (if (and (list? program)
            (equal? (length program) 1 ))
-      #| THEN |# (apply (car program) env)
-                 false
-;      #| ELSE |# (if (and (list? (car program))
-;                          (list? (cdr program)))
-;                     #| THEN |# (and (apply (car program) env)
-;                                     (sem   (cdr program) env))
-;                                false)))
-  )
-  )
+      #| THEN |# (semantics (car program) env)
+      #| ELSE |# (sem (cdr program) (semantics (car program) env))))
 
-(define (apply expr env)
+(define (semantics expr env)
   (cond
-    [ (decl?   expr) (decl   expr env) ]
-   ; [ (assign? expr) (assign expr env) ]
-      ;(assign  expr)
-      ;(op_expr expr)
-      ;(if      expr)
-      ;(while   expr)
-      ))
+    [ (number?  expr)                     expr                             ]
+    [ (symbol?  expr)                     (var_value expr env)             ]
+    [ (equal? (first expr) `decl)   (decl expr env)        ]
+    [ (equal? (first expr) `assign) (assign expr env)      ]
+    [ (equal? (first expr) `if)     (true)]
+    [ (equal? (first expr) `while)  (true)]
+    [ (arith_op? (car expr))              (semarith expr env)              ]
+    [ (condop?  (car expr))         (if (semcond (car expr) env)
+                                              (semantics (cadr expr)       env)
+                                              (semantics (cadr (cdr expr)) env)) ]))
 
+(define (update_env val env)
+  (if (null? env)
+      (cons (list (first val) (second val)) env)
+      (if (not (var_in_env? (first val) env))
+          (cons (list (first val) (second val)) env)
+          (if (equal? (first val) (first (first env)))
+              (cons (list (first val) (second val)) (cdr env))
+              false ; TODO -- Actually fix this shit
+              ))))
+
+#| DECL |#
 (define (decl expr env)
-  (reverse (cons (list (second expr) 0) (reverse env))))
+  (update_env (list (second expr) 0) env))
+  ;(cons (list (second expr) 0)  env))
 
-;(define (assign expr env)
+#| ASSIGN |#
+(define (assign expr env)
+  (if (number? (third expr))
+      (update_env (list (second expr) (third expr)) env)
+      (update_env (list (second expr) (semantics (third expr) env)) env)))
 
-(define (calc op arg1 arg2)
+(define (findvalue v env)
+    (if (equal? (first (first env)) v)
+        (cadr (car env))
+        (findvalue v (cdr env))))
+
+(define (semarith expr env)
   (cond
-    [ (equal? op `+)   (+   arg1 arg2) ]
-    [ (equal? op `-)   (-   arg1 arg2) ]
-    [ (equal? op `/)   (/   arg1 arg2) ]
-    [ (equal? op `*)   (*   arg1 arg2) ]
-    [ (equal? op `gt)  (>   arg1 arg2) ]
-    [ (equal? op `lt)  (<   arg1 arg2) ]
-    [ (equal? op `eq)  (=   arg1 arg2) ]
-    [ (equal? op `not) (not arg1 arg2) ]
-    [ (equal? op `and) (and arg1 arg2) ]
-    [ (equal? op `or)  (or  arg1 arg2) ]))
+    [ (equal? (car expr) `+)   (+   (semantics (cadr expr) env)
+                                    (semantics (cadr (cdr expr)) env)) ]
+    [ (equal? (car expr) `-)   (-   (semantics (cadr expr) env)
+                                    (semantics (cadr (cdr expr)) env)) ]
+    [ (equal? (car expr) `/)   (/   (semantics (cadr expr) env)
+                                    (semantics (cadr (cdr expr)) env)) ]
+    [ (equal? (car expr) `*)   (*   (semantics (cadr expr) env)
+                                    (semantics (cadr (cdr expr)) env)) ]))
 
-    
+(define (semcond expr env)
+  (cond
+    [ (equal? (car expr) `gt)  (>   (semantics (cadr expr) env)
+                                    (semantics (cadr (cdr expr)) env)) ]
+    [ (equal? (car expr) `lt)  (<   (semantics (cadr expr) env)
+                                    (semantics (cadr (cdr expr)) env)) ]
+    [ (equal? (car expr) `eq)  (=   (semantics (cadr expr) env)
+                                    (semantics (cadr (cdr expr)) env)) ]
+    [ (equal? (car expr) `not) (not (semantics (cadr expr) env)
+                                    (semantics (cadr (cdr expr)) env)) ]
+    [ (equal? (car expr) `and) (and (semantics (cadr expr) env)
+                                    (semantics (cadr (cdr expr)) env)) ]
+    [ (equal? (car expr) `or)  (or  (semantics (cadr expr) env)
+                                    (semantics (cadr (cdr expr)) env)) ]))
 
+(define (condop? el)
+  (or (equal? el 'or )
+      (equal? el 'and)
+      (equal? el 'not)
+      (equal? el 'lt )
+      (equal? el 'gt )
+      (equal? el 'eq )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(define (do_if expr env) true)
+(define (do_while expr env) true)
 
 #|------------------------------- End of Sem ---------------------------------|#
 
@@ -198,57 +253,60 @@
 ;(trace expr?)
 
 
-(display "\n ---------- SYNCHK TESTS ---------- \n")
-(print 1)(print false)(synchk program1)
-(print 2)(print false)(synchk program2)
-(print 3)(print false)(synchk program3)
+;(display "\n ---------- SYNCHK TESTS ---------- \n")
+;(print 1)(print false)(synchk program1)
+;(print 2)(print false)(synchk program2)
+;(print 3)(print false)(synchk program3)
+;
+;(display "\nDecl Test\n")
+;(print 4)(print false)(synchk program4)
+;(print 5)(print false)(synchk program5)
+;(print 6)(print true)(synchk program6)
+;
+;(display "\nAssign Test\n")
+;(print 7)(print true)  (synchk program7)
+;(print 8)(print false) (synchk program8)
+;(print 9)(print false) (synchk program9)
+;(print 10)(print false)(synchk program10)
+;(print 11)(print false)(synchk program11)
+;(print 12)(print false)(synchk program12)
+;(print 13)(print true) (synchk program13)
+;(print 14)(print false)(synchk program14)
+;(print 15)(print false)(synchk program15)
+;(print 16)(print true) (synchk program16)
+;(print 17)(print false)(synchk program17)
+;
+;(display "\nIF Test\n")
+;(print 18)(print false)(synchk program18)
+;(print 19)(print true) (synchk program19)
+;(print 20)(print true) (synchk program20)
+;(print 21)(print true) (synchk program21)
+;(print 22)(print false)(synchk program22)
+;(print 23)(print false)(synchk program23)
+;(print 24)(print false)(synchk program24)
+;(print 25)(print true) (synchk program25)
+;
+;(display "\nWhile Test\n")
+;(print 26)(print false)(synchk program26)
+;(print 27)(print true) (synchk program27)
+;(print 28)(print true) (synchk program28)
+;(print 29)(print true) (synchk program29)
+;(print 30)(print false)(synchk program30)
+;(print 31)(print false)(synchk program31)
+;(print 32)(print false)(synchk program32)
+;(print 33)(print true) (synchk program33)
 
-(display "\nDecl Test\n")
-(print 4)(print false)(synchk program4)
-(print 5)(print false)(synchk program5)
-(print 6)(print true)(synchk program6)
 
-(display "\nAssign Test\n")
-(print 7)(print true)(synchk program7)
-(print 8)(print false)(synchk program8)
-(print 9)(print false)(synchk program9)
-(print 10)(print false)(synchk program10)
-(print 11)(print false)(synchk program11)
-(print 12)(print false)(synchk program12)
-(print 13)(print true)(synchk program13)
-(print 14)(print false)(synchk program14)
-(print 15)(print false)(synchk program15)
-(print 16)(print true)(synchk program16)
-(print 17)(print false)(synchk program17)
-
-(display "\nIF Test\n")
-(print 18)(print false)(synchk program18)
-(print 19)(print true)(synchk program19)
-(print 20)(print true)(synchk program20)
-(print 21)(print true)(synchk program21)
-(print 22)(print false)(synchk program22)
-(print 23)(print false)(synchk program23)
-(print 24)(print false)(synchk program24)
-(print 25)(print true)(synchk program25)
-
-(display "\nWhile Test\n")
-(print 26)(print false)(synchk program26)
-(print 27)(print true)(synchk program27)
-(print 28)(print true)(synchk program28)
-(print 29)(print true)(synchk program29)
-(print 30)(print false)(synchk program30)
-(print 31)(print false)(synchk program31)
-(print 32)(print false)(synchk program32)
-(print 33)(print true)(synchk program33)
-
-
-(display "\n ---------- SEM TESTS ---------- \n")
+;(display "\n ---------- SEM TESTS ---------- \n")
 (display "\n34a: ")(sem program34 `())
-(display "34b: ")(sem program34 `((y 0)))
-(display "34c: ")(sem program34 `((x 3)))
+(display "34b: ")  (sem program34 `((y 0)))
+(display "34c: ")  (sem program34 `((x 3)))
 
-(display "\n35: ")(sem program35 `())
-(display "\n36: ")(display "'((x 0) (y 1)) => '((x 6) (y 1)) \n\t")(sem program36 `())
+(display "\n35a: ")(sem program35 `((x 0)))
+(display "35b: ")  (sem program35 `((x 1)))
+(display "35c: ")  (sem program35 `((x -1)))
+
+(display "\n36: ")(display "'((x 0) (y 1)) => '((x 6) (y 1)) \n\t")(sem program36 '((x 0) (y 1)))
 (display "\n37: ")(display "'() => '((y 7) (x 8)) \n\t")(sem program37 `())
 (display "\n38: ")(display "'() => '((y 6) (x 7)) \n\t")(sem program38 `())
 (display "\n39: ")(display "'() => '((y 7) (x 6)) \n\t")(sem program39 `())
