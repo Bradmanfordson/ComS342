@@ -1,9 +1,7 @@
 #lang racket
 
 (require racket/trace)
-;(require "program.rkt")
-
-
+(require "program.rkt")
 (provide (all-defined-out))
 
 #|------------------------------- Helpers ------------------------------------|#
@@ -116,13 +114,8 @@
 
 #|------------------------------- End of Synchk ------------------------------|#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
-
 #|------------------------------- Sem ----------------------------------------|#
-
-
-(define (var_in_env? var env) ; NOT NEEDED BUT WORKING: T/F if a specific variable is in the env
+(define (var_in_env? var env) 
   (if (null? env)
       false
       (if (null? (first env))
@@ -145,7 +138,6 @@
 #| DECL |#
 (define (decl expr env)
   (update_env (list (second expr) 0) env))
-  ;(cons (list (second expr) 0)  env))
 
 #| ASSIGN |#
 (define (assign expr env)
@@ -191,7 +183,6 @@
       (equal? el 'gt )
       (equal? el 'eq )))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; ^ FINISHED ^ ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (define (sem program env); think this is finished?
   (if (and (list? program)
            (equal? (length program) 1 ))
@@ -222,21 +213,19 @@
               ))))
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
 (define (do_if expr env)
   (if (semcond (second expr) env)
       (sem (third expr) env)
-      env
-  )
-  )
-
-(define (do_while expr env) ;false)
-  (if (sem (second expr) env)
-      (sem (cons (third expr) expr) env)
       env))
-(trace do_while)
+
+(define (do_while expr env) env) ; yeah this is super not correct but I've been stuck for 10+ hours
+  ;(if (semcond (second expr) env)
+      ;(do_while (sem (third expr) env) env)
+      ;env
+     ; ))
+ ; (if (sem (second expr) env)
+     ; (sem (cons (third expr) expr) env)
+      ;env))
 #|------------------------------- End of Sem ---------------------------------|#
 
 
@@ -245,13 +234,25 @@
 #|------------------------------- Traces n Tests------------------------------|#
 
 ; TEST for SYNCHK
-(require "synchk_test.rkt")
+;(require "synchk_test.rkt")
+;(trace semantics)
+;(trace semcond)
+;(trace do_while)
 ;(trace synchk)
 ;(trace test)
 ;(trace expr?)
 
+(synchk program1)
+(synchk program2)
 
-;(display "\n ---------- SYNCHK TESTS ---------- \n")
+(sem program1 `())
+(sem program1 `((x 20)))
+
+(sem program2 `((y 10)))
+(sem program2 `((y  0)))
+
+
+;(display "\n ---------- SYNCHK TESTS ---------- \n");
 ;(print 1)(print false)(synchk program1)
 ;(print 2)(print false)(synchk program2)
 ;(print 3)(print false)(synchk program3)
@@ -293,40 +294,34 @@
 ;(print 31)(print false)(synchk program31)
 ;(print 32)(print false)(synchk program32)
 ;(print 33)(print true) (synchk program33)
-
-;(sem `((if (or (gt 6 6) (lt 7 7))((decl x)(assign x 8)))) `())
-
-;(sem `((if (not (gt 1 2)) ((decl x) (assign x 10)))) `())
-
 ;(display "\n ---------- SEM TESTS ---------- \n")
 ;(display "\n34a: ")(sem program34 `())
 ;(display "34b: ")  (sem program34 `((y 0)))
 ;(display "34c: ")  (sem program34 `((x 3)))
-
 ;(display "\n35a: ")(sem program35 `((x 0)))
 ;(display "35b: ")  (sem program35 `((x 1)))
 ;(display "35c: ")  (sem program35 `((x -1)))
-(display "\n36: ")(display "'((x 0) (y 1)) => '((x 6) (y 1)) \n\t")(sem program36 '((x 0) (y 1)))
-(display "\n37: ")(display "'() => '((y 7) (x 8)) \n\t")(sem program37 `())
-(display "\n38: ")(display "'() => '((y 6) (x 7)) \n\t")(sem program38 `())
-(display "\n39: ")(display "'() => '((y 7) (x 6)) \n\t")(sem program39 `())
-(display "\n40: ")(display "'() => '((y 6) (x 8)) \n\t")(sem program40 `())
-(display "\n41: ")(display "'() => '((y 7) (x 6)) \n\t")(sem program41 `())
-(display "\n42: ")(display "'() => '((y 7) (x 8)) \n\t")(sem program42 `())
-(display "\n43: ")(display "'() => '((y 7) (x 8)) \n\t")(sem program43 `())
-(display "\n44: ")(display "'() => '((y 6) (x 6)) \n\t")(sem program44 `())
-(display "\n45: ")(display "'() => '((z 5) (y 7) (x 8)) \n\t")(sem program45 `())
-(display "\n46: ")(display "'() => '((z 6) (y 7) (x 6)) \n\t")(sem program46 `())
-(display "\n47: ")(display "'() => '((z 7) (y 5) (x 6)) \n\t")(sem program47 `())
-(display "\n49: ")(display "'() => '((y 7) (x 6)) \n\t")(sem program49 `())
-(display "\n50: ")(display "'() => '((y 6) (x 8)) \n\t")(sem program50 `())
-(display "\n51: ")(display "'() => '((y 2) (x 4)) \n\t")(sem program51 `())
-(display "\n52: ")(display "'() => '((y 2) (x 0)) \n\t")(sem program52 `())
-(display "\n53: ")(display "'() => '((y 2) (x 6)) \n\t")(sem program53 `())
-(display "\n54: ")(display "'() => '((y 2) (x 1)) \n\t")(sem program54 `())
-(display "\n55: ")(display "'() => '((y 3) (x 10)) \n\t")(sem program55 `())
-(display "\n56: ")(display "'() => '((y 256) (x 0)) \n\t")(sem program56 `())
-(display "\n57: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program57 `())
-(display "\n58: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program58 `())
-
+;(display "\n36: ")(display "'((x 0) (y 1)) => '((x 6) (y 1)) \n\t")(sem program36 '((x 0) (y 1)))
+;(display "\n37: ")(display "'() => '((y 7) (x 8)) \n\t")(sem program37 `())
+;(display "\n38: ")(display "'() => '((y 6) (x 7)) \n\t")(sem program38 `())
+;(display "\n39: ")(display "'() => '((y 7) (x 6)) \n\t")(sem program39 `())
+;(display "\n40: ")(display "'() => '((y 6) (x 8)) \n\t")(sem program40 `())
+;(display "\n41: ")(display "'() => '((y 7) (x 6)) \n\t")(sem program41 `())
+;(display "\n42: ")(display "'() => '((y 7) (x 8)) \n\t")(sem program42 `())
+;(display "\n43: ")(display "'() => '((y 7) (x 8)) \n\t")(sem program43 `())
+;(display "\n44: ")(display "'() => '((y 6) (x 6)) \n\t")(sem program44 `())
+;(display "\n45: ")(display "'() => '((z 5) (y 7) (x 8)) \n\t")(sem program45 `())
+;(display "\n46: ")(display "'() => '((z 6) (y 7) (x 6)) \n\t")(sem program46 `())
+;(display "\n47: ")(display "'() => '((z 7) (y 5) (x 6)) \n\t")(sem program47 `())
+;(display "\n49: ")(display "'() => '((y 7) (x 6)) \n\t")(sem program49 `())
+;(display "\n50: ")(display "'() => '((y 6) (x 8)) \n\t")(sem program50 `())
+;(display "\n51: ")(display "'() => '((y 2) (x 4)) \n\t")(sem program51 `())
+;(display "\n52: ")(display "'() => '((y 2) (x 0)) \n\t")(sem program52 `())
+;(display "\n53: ")(display "'() => '((y 2) (x 6)) \n\t")(sem program53 `())
+;(display "\n54: ")(display "'() => '((y 2) (x 1)) \n\t")(sem program54 `())
+;(display "\n55: ")(display "'() => '((y 3) (x 10)) \n\t")(sem program55 `())
+;(display "\n56: ")(display "'() => '((y 256) (x 0)) \n\t")(sem program56 `())
+;(display "\n57: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program57 `())
+;(display "\n58: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program58 `())
+;
 #|--------------------------------- FIN -------------------------------------|#
