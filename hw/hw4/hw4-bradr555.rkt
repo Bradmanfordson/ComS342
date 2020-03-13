@@ -13,7 +13,7 @@
 #|----------------------------------------------------------------------------|#
 
 #|------------------------------- Synchk -------------------------------------|#
-(define (synchk program)
+(define (synchkasdf program)
   (if (and (list? program)         ; Is the program a list?
            (equal? (length program) 1)) ; Does the program list have more than 1 element?
       #| THEN |# (expr? (car program))
@@ -115,10 +115,80 @@
                (expr? (third  expr) )))))
 
 #|------------------------------- End of Synchk ------------------------------|#
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 
+#|------------------------------- Sem ----------------------------------------|#
+(define (var_in_env? var env) ; NOT NEEDED BUT WORKING: T/F if a specific variable is in the env
+  (if (null? env)
+      false
+      (if (null? (first env))
+          false ; because variable isnt in an empty environment
+          (if (equal? var (first (first env)))
+              true ; if variable is found
+              (var_in_env? var (cdr env))))))
 
+
+(define (synchk program)
+  (if (and (list? program)         ; Is the program a list?
+           (equal? (length program) 1)) ; Does the program list have more than 1 element?
+      #| THEN |# (expr? (car program))
+      #| ELSE |# (if (and (list? (car program))     ; Is the first element in the program list also a list?
+                          (list? (cdr program)))    ; Is the rest of the program a list?
+                    #| THEN |# (and (expr? (car program))
+                                    (synchk (cdr program)))
+                    #| ELSE |# false )))
+
+(define (sem program env)
+  (if (and (list? program)
+           (equal? (length program) 1 ))
+      #| THEN |# (apply (car program) env)
+                 false
+;      #| ELSE |# (if (and (list? (car program))
+;                          (list? (cdr program)))
+;                     #| THEN |# (and (apply (car program) env)
+;                                     (sem   (cdr program) env))
+;                                false)))
+  )
+  )
+
+(define (apply expr env)
+  (cond
+    [ (decl?   expr) (decl   expr env) ]
+   ; [ (assign? expr) (assign expr env) ]
+      ;(assign  expr)
+      ;(op_expr expr)
+      ;(if      expr)
+      ;(while   expr)
+      ))
+
+(define (decl expr env)
+  (reverse (cons (list (second expr) 0) (reverse env))))
+
+;(define (assign expr env)
+
+(define (calc op arg1 arg2)
+  (cond
+    [ (equal? op `+)   (+   arg1 arg2) ]
+    [ (equal? op `-)   (-   arg1 arg2) ]
+    [ (equal? op `/)   (/   arg1 arg2) ]
+    [ (equal? op `*)   (*   arg1 arg2) ]
+    [ (equal? op `gt)  (>   arg1 arg2) ]
+    [ (equal? op `lt)  (<   arg1 arg2) ]
+    [ (equal? op `eq)  (=   arg1 arg2) ]
+    [ (equal? op `not) (not arg1 arg2) ]
+    [ (equal? op `and) (and arg1 arg2) ]
+    [ (equal? op `or)  (or  arg1 arg2) ]))
+
+    
+
+
+#|------------------------------- End of Sem ---------------------------------|#
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #|------------------------------- Traces n Tests------------------------------|#
 
 ; TEST for SYNCHK
@@ -173,29 +243,32 @@
 
 
 (display "\n ---------- SEM TESTS ---------- \n")
-(display "\n34: ")(synchk program34)
-(display "\n35: ")(synchk program35)
-(display "\n36: ")(display "'((x 0) (y 1)) => '((x 6) (y 1)) \n\t")(synchk program36)
-(display "\n37: ")(display "'() => '((y 7) (x 8)) \n\t")(synchk program37)
-(display "\n38: ")(display "'() => '((y 6) (x 7)) \n\t")(synchk program38)
-(display "\n39: ")(display "'() => '((y 7) (x 6)) \n\t")(synchk program39)
-(display "\n40: ")(display "'() => '((y 6) (x 8)) \n\t")(synchk program40)
-(display "\n41: ")(display "'() => '((y 7) (x 6)) \n\t")(synchk program41)
-(display "\n42: ")(display "'() => '((y 7) (x 8)) \n\t")(synchk program42)
-(display "\n43: ")(display "'() => '((y 7) (x 8)) \n\t")(synchk program43)
-(display "\n44: ")(display "'() => '((y 6) (x 6)) \n\t")(synchk program44)
-(display "\n45: ")(display "'() => '((z 5) (y 7) (x 8)) \n\t")(synchk program45)
-(display "\n46: ")(display "'() => '((z 5) (y 7) (x 6)) \n\t")(synchk program46)
-(display "\n47: ")(display "'() => '((z 7) (y 5) (x 6)) \n\t")(synchk program47)
-(display "\n49: ")(display "'() => '((y 7) (x 6)) \n\t")(synchk program49)
-(display "\n50: ")(display "'() => '((y 6) (x 8)) \n\t")(synchk program50)
-(display "\n51: ")(display "'() => '((y 2) (x 4)) \n\t")(synchk program51)
-(display "\n52: ")(display "'() => '((y 2) (x 0)) \n\t")(synchk program52)
-(display "\n53: ")(display "'() => '((y 2) (x 6)) \n\t")(synchk program53)
-(display "\n54: ")(display "'() => '((y 2) (x 1)) \n\t")(synchk program54)
-(display "\n55: ")(display "'() => '((y 3) (x 10)) \n\t")(synchk program55)
-(display "\n56: ")(display "'() => '((y 256) (x 0)) \n\t")(synchk program56)
-(display "\n57: ")(display "'() => '((y 4) (x 4)) \n\t")(synchk program57)
-(display "\n58: ")(display "'() => '((y 4) (x 4)) \n\t")(synchk program58)
+(display "\n34a: ")(sem program34 `())
+(display "34b: ")(sem program34 `((y 0)))
+(display "34c: ")(sem program34 `((x 3)))
+
+(display "\n35: ")(sem program35 `())
+(display "\n36: ")(display "'((x 0) (y 1)) => '((x 6) (y 1)) \n\t")(sem program36 `())
+(display "\n37: ")(display "'() => '((y 7) (x 8)) \n\t")(sem program37 `())
+(display "\n38: ")(display "'() => '((y 6) (x 7)) \n\t")(sem program38 `())
+(display "\n39: ")(display "'() => '((y 7) (x 6)) \n\t")(sem program39 `())
+(display "\n40: ")(display "'() => '((y 6) (x 8)) \n\t")(sem program40 `())
+(display "\n41: ")(display "'() => '((y 7) (x 6)) \n\t")(sem program41 `())
+(display "\n42: ")(display "'() => '((y 7) (x 8)) \n\t")(sem program42 `())
+(display "\n43: ")(display "'() => '((y 7) (x 8)) \n\t")(sem program43 `())
+(display "\n44: ")(display "'() => '((y 6) (x 6)) \n\t")(sem program44 `())
+(display "\n45: ")(display "'() => '((z 5) (y 7) (x 8)) \n\t")(sem program45 `())
+(display "\n46: ")(display "'() => '((z 5) (y 7) (x 6)) \n\t")(sem program46 `())
+(display "\n47: ")(display "'() => '((z 7) (y 5) (x 6)) \n\t")(sem program47 `())
+(display "\n49: ")(display "'() => '((y 7) (x 6)) \n\t")(sem program49 `())
+(display "\n50: ")(display "'() => '((y 6) (x 8)) \n\t")(sem program50 `())
+(display "\n51: ")(display "'() => '((y 2) (x 4)) \n\t")(sem program51 `())
+(display "\n52: ")(display "'() => '((y 2) (x 0)) \n\t")(sem program52 `())
+(display "\n53: ")(display "'() => '((y 2) (x 6)) \n\t")(sem program53 `())
+(display "\n54: ")(display "'() => '((y 2) (x 1)) \n\t")(sem program54 `())
+(display "\n55: ")(display "'() => '((y 3) (x 10)) \n\t")(sem program55 `())
+(display "\n56: ")(display "'() => '((y 256) (x 0)) \n\t")(sem program56 `())
+(display "\n57: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program57 `())
+(display "\n58: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program58 `())
 
 #|--------------------------------- FIN -------------------------------------|#
