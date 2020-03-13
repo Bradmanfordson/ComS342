@@ -177,11 +177,11 @@
                                     (semantics (cadr (cdr expr)) env)) ]
     [ (equal? (car expr) `eq)  (=   (semantics (cadr expr) env)
                                     (semantics (cadr (cdr expr)) env)) ]
-    [ (equal? (car expr) `not) (not (semantics (cadr expr) env))       ]
-    [ (equal? (car expr) `and) (and (semantics (cadr expr) env)
-                                    (semantics (cadr (cdr expr)) env)) ]
-    [ (equal? (car expr) `or)  (or  (semantics (cadr expr) env)
-                                    (semantics (cadr (cdr expr)) env)) ]))
+    [ (equal? (car expr) `not) (not (semcond (cadr expr) env))       ]
+    [ (equal? (car expr) `and) (and (semcond (cadr expr) env)
+                                    (semcond (cadr (cdr expr)) env)) ]
+    [ (equal? (car expr) `or)  (or  (semcond (cadr expr) env)
+                                    (semcond (cadr (cdr expr)) env)) ]))
 
 (define (condop? el)
   (or (equal? el 'or )
@@ -218,7 +218,7 @@
           (cons (list (first val) (second val)) env)
           (if (equal? (first val) (first (first env)))
               (cons (list (first val) (second val)) (cdr env))
-              (cons (car env) (update_env val (cdr env))) ; TODO -- Actually fix this shit
+              (cons (car env) (update_env val (cdr env)))
               ))))
 
 
@@ -228,11 +228,15 @@
 (define (do_if expr env)
   (if (semcond (second expr) env)
       (sem (third expr) env)
-      false ; TODO
+      env
   )
   )
-(define (do_while expr env) true)
 
+(define (do_while expr env) ;false)
+  (if (sem (second expr) env)
+      (sem (cons (third expr) expr) env)
+      env))
+(trace do_while)
 #|------------------------------- End of Sem ---------------------------------|#
 
 
@@ -294,14 +298,14 @@
 
 ;(sem `((if (not (gt 1 2)) ((decl x) (assign x 10)))) `())
 
-(display "\n ---------- SEM TESTS ---------- \n")
-(display "\n34a: ")(sem program34 `())
-(display "34b: ")  (sem program34 `((y 0)))
-(display "34c: ")  (sem program34 `((x 3)))
+;(display "\n ---------- SEM TESTS ---------- \n")
+;(display "\n34a: ")(sem program34 `())
+;(display "34b: ")  (sem program34 `((y 0)))
+;(display "34c: ")  (sem program34 `((x 3)))
 
-(display "\n35a: ")(sem program35 `((x 0)))
-(display "35b: ")  (sem program35 `((x 1)))
-(display "35c: ")  (sem program35 `((x -1)))
+;(display "\n35a: ")(sem program35 `((x 0)))
+;(display "35b: ")  (sem program35 `((x 1)))
+;(display "35c: ")  (sem program35 `((x -1)))
 (display "\n36: ")(display "'((x 0) (y 1)) => '((x 6) (y 1)) \n\t")(sem program36 '((x 0) (y 1)))
 (display "\n37: ")(display "'() => '((y 7) (x 8)) \n\t")(sem program37 `())
 (display "\n38: ")(display "'() => '((y 6) (x 7)) \n\t")(sem program38 `())
@@ -312,7 +316,7 @@
 (display "\n43: ")(display "'() => '((y 7) (x 8)) \n\t")(sem program43 `())
 (display "\n44: ")(display "'() => '((y 6) (x 6)) \n\t")(sem program44 `())
 (display "\n45: ")(display "'() => '((z 5) (y 7) (x 8)) \n\t")(sem program45 `())
-(display "\n46: ")(display "'() => '((z 5) (y 7) (x 6)) \n\t")(sem program46 `())
+(display "\n46: ")(display "'() => '((z 6) (y 7) (x 6)) \n\t")(sem program46 `())
 (display "\n47: ")(display "'() => '((z 7) (y 5) (x 6)) \n\t")(sem program47 `())
 (display "\n49: ")(display "'() => '((y 7) (x 6)) \n\t")(sem program49 `())
 (display "\n50: ")(display "'() => '((y 6) (x 8)) \n\t")(sem program50 `())
