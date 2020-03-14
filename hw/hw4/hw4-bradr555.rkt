@@ -1,7 +1,7 @@
 #lang racket
 
 (require racket/trace)
-(require "program.rkt")
+;(require "program.rkt")
 (provide (all-defined-out))
 
 #|------------------------------- Helpers ------------------------------------|#
@@ -197,7 +197,7 @@
     [ (equal? (first expr) `assign) (assign expr env)      ]
     [ (equal? (first expr) `if)     (do_if expr env)]
     [ (equal? (first expr) `while)  (do_while expr env)]
-    [ (arith_op? (car expr))              (semarith expr env)              ]
+    [ (arith_op? (car expr))        (semarith expr env)              ]
     [ (condop?  (car expr))         (if (semcond expr env)
                                         (semantics (cadr expr) env)
                                         (semantics (cadr (cdr expr)) env)) ]))
@@ -212,17 +212,21 @@
               (cons (car env) (update_env val (cdr env)))
               ))))
 
-
 (define (do_if expr env)
   (if (semcond (second expr) env)
       (sem (third expr) env)
       env))
 
-(define (do_while expr env) env) ; yeah this is super not correct but I've been stuck for 10+ hours
-  ;(if (semcond (second expr) env)
-      ;(do_while (sem (third expr) env) env)
-      ;env
-     ; ))
+(define (do_while expr env)
+  (if (semcond (second expr) env)
+      (do_while expr (sem (third expr) env))
+      env))
+
+;(trace do_while)
+  ;(if; (semcond (second expr) env)
+     ; (do_while (sem (third expr) `()) env)
+     ; env
+      ;))
  ; (if (sem (second expr) env)
      ; (sem (cons (third expr) expr) env)
       ;env))
@@ -234,7 +238,7 @@
 #|------------------------------- Traces n Tests------------------------------|#
 
 ; TEST for SYNCHK
-;(require "synchk_test.rkt")
+(require "synchk_test.rkt")
 ;(trace semantics)
 ;(trace semcond)
 ;(trace do_while)
@@ -242,14 +246,14 @@
 ;(trace test)
 ;(trace expr?)
 
-(synchk program1)
-(synchk program2)
+;(synchk program1)
+;(synchk program2)
 
-(sem program1 `())
-(sem program1 `((x 20)))
+;(sem program1 `())
+;(sem program1 `((x 20)))
 
-(sem program2 `((y 10)))
-(sem program2 `((y  0)))
+;(sem program2 `((y 10)))
+;(sem program2 `((y  0)))
 
 
 ;(display "\n ---------- SYNCHK TESTS ---------- \n");
@@ -320,8 +324,8 @@
 ;(display "\n53: ")(display "'() => '((y 2) (x 6)) \n\t")(sem program53 `())
 ;(display "\n54: ")(display "'() => '((y 2) (x 1)) \n\t")(sem program54 `())
 ;(display "\n55: ")(display "'() => '((y 3) (x 10)) \n\t")(sem program55 `())
-;(display "\n56: ")(display "'() => '((y 256) (x 0)) \n\t")(sem program56 `())
-;(display "\n57: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program57 `())
-;(display "\n58: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program58 `())
+(display "\n56: ")(display "'() => '((y 256) (x 0)) \n\t")(sem program56 `())
+(display "\n57: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program57 `())
+(display "\n58: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program58 `())
 ;
 #|--------------------------------- FIN -------------------------------------|#
