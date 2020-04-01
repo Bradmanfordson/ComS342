@@ -1,9 +1,10 @@
 #lang racket
 
-(require racket/trace)
-;(require "program.rkt")
+;(require racket/trace)
+(require "program.rkt")
 (provide (all-defined-out))
 
+; ALLEN ROBERTS MARCH 13 2020
 #|------------------------------- Helpers ------------------------------------|#
 (define (first lst)  (car lst))
 (define (second lst) (cadr lst))
@@ -221,15 +222,6 @@
   (if (semcond (second expr) env)
       (do_while expr (sem (third expr) env))
       env))
-
-;(trace do_while)
-  ;(if; (semcond (second expr) env)
-     ; (do_while (sem (third expr) `()) env)
-     ; env
-      ;))
- ; (if (sem (second expr) env)
-     ; (sem (cons (third expr) expr) env)
-      ;env))
 #|------------------------------- End of Sem ---------------------------------|#
 
 
@@ -238,7 +230,7 @@
 #|------------------------------- Traces n Tests------------------------------|#
 
 ; TEST for SYNCHK
-(require "synchk_test.rkt")
+;(require "synchk_test.rkt")
 ;(trace semantics)
 ;(trace semcond)
 ;(trace do_while)
@@ -324,8 +316,8 @@
 ;(display "\n53: ")(display "'() => '((y 2) (x 6)) \n\t")(sem program53 `())
 ;(display "\n54: ")(display "'() => '((y 2) (x 1)) \n\t")(sem program54 `())
 ;(display "\n55: ")(display "'() => '((y 3) (x 10)) \n\t")(sem program55 `())
-(display "\n56: ")(display "'() => '((y 256) (x 0)) \n\t")(sem program56 `())
-(display "\n57: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program57 `())
-(display "\n58: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program58 `())
+;(display "\n56: ")(display "'() => '((y 256) (x 0)) \n\t")(sem program56 `())
+;(display "\n57: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program57 `())
+;(display "\n58: ")(display "'() => '((y 4) (x 4)) \n\t")(sem program58 `())
 ;
 #|--------------------------------- FIN -------------------------------------|#
