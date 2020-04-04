@@ -30,12 +30,12 @@
 ; semantics of arith expression
 (define (semArith Expr Env)
   (cond
+    [ (function? Expr Env) Expr]    
+
     [ (number? Expr)          Expr ]
 
     [ (symbol? Expr)          (findValue Expr Env) ]
 
-    [ (function? Expr Env) Expr]
-    
     [ (equal? (car Expr) '+)  (+ (semArith (cadr Expr)  Env)
                                  (semArith (cadr (cdr Expr)) Env)) ]
 
@@ -50,13 +50,12 @@
 (define (function? v Env)
   (if (null? Env)
       false
-      (if (and (list? (caar Env)) 
-               (equal? v (caaar Env)))
+      (if (and (list? (cdr Env)) 
+               (equal? v (car Env)))
          true
           (function? v (cdr Env)))))
 
 
-(trace semArith)
 (define (arithExpr E)
   (or
    ;; number
@@ -194,11 +193,11 @@ synchk: Ps -> {true, false}
                                        Env)
                                   Env) ] ;; return the environment because nothing is changing
     [ (equal? (car S) `fundecl) (cons (cdr S)       Env) ]
-    [ (equal? (car S) `anonf)   (cons (list `anonf) Env) ]
-    ;[ (equal? (car S) `call )  (car (functionFindValue (first (second S)) Env))]
-    [ (equal? (car S) `call)    (removemarker (callFunc S (car (functionFindValue (first (second S)) Env)) (cons (list `$call 0) Env))) ]
+    [ (equal? (car S) `anonf)   (cons (list `anonf) Env) ]   
+    [ (equal? (car S) `call ) (cons `call Env)]
+    ;[ (equal? (car S) `call)    (removemarker (callFunc S (car (functionFindValue (first (second S)) Env)) (cons (list `$call 0) Env))) ]
     ))
-(trace semstmt)
+
 
 (define (params paramList paramValList lst)
   (display "\n\nParamList\n")
@@ -269,9 +268,9 @@ synchk: Ps -> {true, false}
 
 
 #| TESTS |#
-(display "\nTest 0: ")(sem p0 `())  ;; ’((y 1) ((f (x)) ((assign y (+ x 1)))))
-(display "\nTest 1: ")(sem p1 `())
-(display "\nTest 2: ")(sem p2 `())
-(display "\nTest 3: ")(sem p3 `())
-(display "\nTest 4: ")(sem p4 `())
-(display "\nTest 5: ")(sem p5 `())
+;(display "\nTest 0: ")(sem p0 `())  ;; ’((y 1) ((f (x)) ((assign y (+ x 1)))))
+;(display "\nTest 1: ")(sem p1 `())
+;(display "\nTest 2: ")(sem p2 `())
+;(display "\nTest 3: ")(sem p3 `())
+;(display "\nTest 4: ")(sem p4 `())
+;(display "\nTest 5: ")(sem p5 `())
