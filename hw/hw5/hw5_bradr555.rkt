@@ -154,10 +154,17 @@ update the associated value of the first occurrence of v with val in the Env
 Code developed in-class starts here.
 find the associated value of a variable (first occurrence)
 |#
-(define (findValue v Env)
-  (if (equal? v (car (car Env)))
-      (cadr (car Env))
-      (findValue v (cdr Env))))
+(define (findValue v env)
+  (if (null? env)
+      '()
+      (if (and (list? (caar env)) (equal? v (caaar env)) ) 
+          (second (car env))
+          (findValue v (cdr env)))))
+  ;(if (equal? v (car (car Env)))
+  ;    (cadr (car Env))
+   ;   (findValue v (cdr Env))))
+
+
 
 ; semantics of arith expression
 (define (semArith Expr Env)
