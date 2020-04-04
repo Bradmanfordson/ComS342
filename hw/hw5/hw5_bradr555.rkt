@@ -4,43 +4,59 @@
 (require "program.rkt")
 
 
-#|
-synchk: Ps -> {true, false}
+#| HELPER FUNCTIONS |#
+; semantics of complex conditions
+(define (semcomplexcond CCond Env)
+  (cond
+    [ (equal? (car CCond) 'or)   (or (semcomplexcond (cadr CCond) Env)
+                                     (semcomplexcond (cadr (cdr CCond)) Env)) ]
+    [ (equal? (car CCond) 'and)   (and (semcomplexcond (cadr CCond) Env)
+                                     (semcomplexcond (cadr (cdr CCond)) Env)) ]
+    [ (equal? (car CCond) 'not)   (not (semcomplexcond (cadr CCond) Env))
+                                      ]
+    [ else  (semboolcond CCond Env) ]))  ;; semantics of conditions: lt, gt
 
-- Program \in Ps is a list of statements
-- Statement is a list of three forms: decl, assign, if
-|#
+; complete the definition
+(define (semboolcond BCond Env)
+  (cond
+    [ (equal? (car BCond) 'gt)  (> (semArith (cadr BCond) Env)
+                                   (semArith (cadr (cdr BCond)) Env)) ]
+    [ (equal? (car BCond) 'lt)  (< (semArith (cadr BCond) Env)
+                                   (semArith (cadr (cdr BCond)) Env)) ]
+    [ (equal? (car BCond) 'eq)  (equal? (semArith (cadr BCond) Env)
+                                        (semArith (cadr (cdr BCond)) Env)) ]))
 
-(define (synchk P)
-  (if (and (list? P) (not (null? P)))  ;; should be a non-empty list
-      (if (null? (cdr P))  ;; P contains just one
-          (synchkStmt (car P)) ;; synchk the statement
-          (and (synchkStmt (car P))  ;; else synchk the sequence of statements
-               (synchk (cdr P))))
-      false))  ;; everything else is false.
 
-;; 
-(define (synchkStmt S)
-  (and (and (list? S) (not (null? S)))  ;; should be a non-empty list
-       (or
-        ;; declara
-        (and
-             (equal? (car S) 'decl)
-             (equal? (length S) 2)
-             (symbol? (cadr S)))
-     
-        ;; assignment 
-        (and (equal? (car S) 'assign)
-             (equal? (length S) 3)
-             (symbol? (cadr S))
-             (arithExpr (cadr (cdr S))))
-        ;; if and while
-        (and (or (equal? (car S) 'if) (equal? (car S) 'while))
-             (equal? (length S) 3)
-             (condExpr (cadr S))
-             (synchk (cadr (cdr S))))
-        )))
+; semantics of arith expression
+(define (semArith Expr Env)
+  (cond
+    [ (number? Expr)          Expr ]
 
+    [ (symbol? Expr)          (findValue Expr Env) ]
+
+    [ (function? Expr Env) Expr]
+    
+    [ (equal? (car Expr) '+)  (+ (semArith (cadr Expr)  Env)
+                                 (semArith (cadr (cdr Expr)) Env)) ]
+
+    [ (equal? (car Expr) '-)  (- (semArith (cadr Expr) Env)
+                                 (semArith (cadr (cdr Expr)) Env)) ]
+    [ (equal? (car Expr) '*)  (* (semArith (cadr Expr) Env)
+                                 (semArith (cadr (cdr Expr)) Env)) ]
+    [ (equal? (car Expr) '/)  (/ (semArith (cadr Expr) Env)
+                                 (semArith (cadr (cdr Expr)) Env)) ]
+    ))
+
+(define (function? v Env)
+  (if (null? Env)
+      false
+      (if (and (list? (caar Env)) 
+               (equal? v (caaar Env)))
+         true
+          (function? v (cdr Env)))))
+
+
+(trace semArith)
 (define (arithExpr E)
   (or
    ;; number
@@ -70,55 +86,12 @@ synchk: Ps -> {true, false}
          (equal? (car E) 'not)
          (equal? (length E) 2)
          (condExpr (cadr E))))))
-  
+
 (define (boolExpr E)
   (and
        (or (equal? (car E) 'gt) (equal? (car E) 'lt) (equal? (car E) 'eq))
        (arithExpr (cadr E))
        (arithExpr (cadr (cdr E)))))
-
-#| For further practice: restructure the above and have a function for checking
-                         each expression rather than using nested or's and and's
- |#
-
-#|
- Semantics of a program =
-  Semantics of rest of the program in the context of semantics of first statement
-|#
-
-(define (sem P Env)
-  (if (null? (cdr P))  ; one statement in the program 
-      (semstmt (car P) Env)  ;; find the semantics of the single statement
-      (sem (cdr P) (semstmt (car P) Env))))  ;; else relay-chain the semantics
-
-(define (semstmt S Env)
-  (cond
-    ;[ (equal? 1 1) 1 ]
-    ;; declaration 
-    [ (equal? (car S) 'decl)   (cons (list (cadr S) 0) Env) ]
-    ;; assignment: update the value of the variable
-    [ (equal? (car S) 'assign) (updateValue (cadr S)
-                                            (semArith (cadr (cdr S)) Env)
-                                            Env) ]
-    ;; if: setup a marker for the start of the if and when all is done, remove the environment till the marker (incl)
-    [ (equal? (car S) 'if)  (removemarker (semIf (semcomplexcond (cadr S) Env) ;; condExpr
-                                                 (cadr (cdr S)) ;; sequence of stmts
-                                                 (cons (list '$if 0) Env))) ]
-    [ (equal? (car S) 'while) (if (semcomplexcond (cadr S) Env) ;; condition is true
-                                  (sem (list (list 'if '(eq 1 1) (cadr (cdr S))) ;; sequence of while statements
-                                               S) ;; the while statement
-                                       Env)
-                                  Env) ] ;; return the environment because nothing is changing
-    [(equal? (car S) `fundecl) (cons (cdr S)      Env) ]
-    [(equal? (car S) `call)    (cons (list `call) Env) ]
-    [(equal? (car S) `anonf)   (cons (cdr S)      Env)]
-    ))
-
-#| (while Cond (SSeq)): if semantics of Cond is true then semantics of while-stmt
-   is equivalent to
-   ( (if (eq 1 1) (SSeq)) (while Cond (SSeq)) )
-   This is implemented in the above semantic rule for while
-|#
 
 #| semIf: parameter 1 is either true/false
           parameter 2 is sequence of statements in if-bod
@@ -136,7 +109,8 @@ remove everything in the Environment till the first marker
 Takes care of nesting. 
 |#
 (define (removemarker Env)
-  (if (equal? (car (car Env)) '$if)
+  (if (or (equal? (car (car Env)) '$if)
+          (equal? (car (car Env)) '$call))
       (cdr Env)
       (removemarker (cdr Env))))
 
@@ -151,94 +125,153 @@ update the associated value of the first occurrence of v with val in the Env
       (cons (car Env) (updateValue v val (cdr Env)))))
 
 #|
-Code developed in-class starts here.
-find the associated value of a variable (first occurrence)
+synchk: Ps -> {true, false}
+
+- Program \in Ps is a list of statements
+- Statement is a list of three forms: decl, assign, if
 |#
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#| SYNCHK |#
+
+(define (synchk P)
+  (if (and (list? P) (not (null? P)))  ;; should be a non-empty list
+      (if (null? (cdr P))  ;; P contains just one
+          (synchkStmt (car P)) ;; synchk the statement
+          (and (synchkStmt (car P))  ;; else synchk the sequence of statements
+               (synchk (cdr P))))
+      false))  ;; everything else is false.
+
+
+(define (synchkStmt S)
+  (and (and (list? S) (not (null? S)))  ;; should be a non-empty list
+       (or
+        ;; declare
+        (and
+             (equal? (car S) 'decl)
+             (equal? (length S) 2)
+             (symbol? (cadr S)))
+     
+        ;; assignment 
+        (and (equal? (car S) 'assign)
+             (equal? (length S) 3)
+             (symbol? (cadr S))
+             (arithExpr (cadr (cdr S))))
+        ;; if and while
+        (and (or (equal? (car S) 'if) (equal? (car S) 'while))
+             (equal? (length S) 3)
+             (condExpr (cadr S))
+             (synchk (cadr (cdr S))))
+        )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#| SEMANTICS |#
+#|
+ Semantics of a program =
+  Semantics of rest of the program in the context of semantics of first statement
+|#
+
+(define (sem P Env)
+  (if (null? (cdr P))  ; one statement in the program 
+      (semstmt (car P) Env)  ;; find the semantics of the single statement
+      (sem (cdr P) (semstmt (car P) Env))))  ;; else relay-chain the semantics
+
+(define (semstmt S Env) ; S is the program statement
+  (cond
+    ;; declaration 
+    [ (equal? (car S) 'decl)   (cons (list (cadr S) 0) Env) ]
+    ;; assignment: update the value of the variable
+    [ (equal? (car S) 'assign) (updateValue (cadr S)
+                                            (semArith (cadr (cdr S)) Env)
+                                            Env) ]
+    ;; if: setup a marker for the start of the if and when all is done, remove the environment till the marker (incl)
+    [ (equal? (car S) 'if)  (removemarker (semIf (semcomplexcond (cadr S) Env) ;; condExpr
+                                                 (cadr (cdr S)) ;; sequence of stmts
+                                                 (cons (list '$if 0) Env))) ]
+    [ (equal? (car S) 'while) (if (semcomplexcond (cadr S) Env) ;; condition is true
+                                  (sem (list (list 'if '(eq 1 1) (cadr (cdr S))) ;; sequence of while statements
+                                               S) ;; the while statement
+                                       Env)
+                                  Env) ] ;; return the environment because nothing is changing
+    [ (equal? (car S) `fundecl) (cons (cdr S)       Env) ]
+    [ (equal? (car S) `anonf)   (cons (list `anonf) Env) ]
+    ;[ (equal? (car S) `call )  (car (functionFindValue (first (second S)) Env))]
+    [ (equal? (car S) `call)    (removemarker (callFunc S (car (functionFindValue (first (second S)) Env)) (cons (list `$call 0) Env))) ]
+    ))
+(trace semstmt)
+
+(define (params paramList paramValList lst)
+  (display "\n\nParamList\n")
+  (display  paramList)
+  (display "\nparamValList\n")
+  (display paramValList)
+  (display "\n")
+  (if (null? paramList)
+      lst
+      (params
+       (cdr paramList)
+       (cdr paramValList)
+       (cons
+        (list(car paramList)(car paramValList))
+        lst))))
+
+
+
+(define (callFunc S func env)
+  (display "\n")
+  (display  func)
+  (display "\n")
+  (display (second ( car func)))
+  (display "----------------\n")
+  (display (second (second S)))
+  (display (cadr  func))
+  
+  
+  (sem (cadr func)
+       (params (second (car func)) ; paramList from FUNCTION
+               (second (second S)) ;paramValList from CALL
+               env)))
+#|
+(mapParams (cdr paramList) (cdr paramValList) (cons (list (car paramList) (car paramValList)) lst))))
+
+(define (callFunction function paramValList scopeType Env)
+  (sem (cadr function) (mapParams (cadar function) paramValList Env)))
+|#
+
+(define (RenewEnv args formalParams env)
+  (if (null? args)
+      env
+      (cons (list (car formalParams) (semstmt (car args) env))
+            (RenewEnv (cdr args) (cdr formalParams) env))))
+
 (define (findValue v env)
   (if (null? env)
       '()
       (if (and (list? (caar env)) (equal? v (caaar env)) ) 
           (second (car env))
           (findValue v (cdr env)))))
-  ;(if (equal? v (car (car Env)))
-  ;    (cadr (car Env))
-   ;   (findValue v (cdr Env))))
 
 
+(define (functionFindValue v env)
+  (if (null? env)
+      '()
+      (if (and (list? (caar env)) (equal? v (caaar env)) ) 
+          env
+          (functionFindValue v (cdr env)))))
 
-; semantics of arith expression
-(define (semArith Expr Env)
-  (cond
-    [ (number? Expr)          Expr ]
-
-    [ (symbol? Expr)          (findValue Expr Env) ]
-    
-    [ (equal? (car Expr) '+)  (+ (semArith (cadr Expr)  Env)
-                                 (semArith (cadr (cdr Expr)) Env)) ]
-    [ (equal? (car Expr) '-)  (- (semArith (cadr Expr) Env)
-                                 (semArith (cadr (cdr Expr)) Env)) ]
-    [ (equal? (car Expr) '*)  (* (semArith (cadr Expr) Env)
-                                 (semArith (cadr (cdr Expr)) Env)) ]
-    [ (equal? (car Expr) '/)  (/ (semArith (cadr Expr) Env)
-                                 (semArith (cadr (cdr Expr)) Env)) ]
-    ))
+(define (FuncParams fname env)
+  (if (null? env)
+      '()
+      (if (and (list? (caar env)) (equal? fname (caaar env)) ) 
+          (second (caar env))
+          (FuncParams fname (cdr env)))))
 
 
-; semantics of complex conditions
-(define (semcomplexcond CCond Env)
-  (cond
-    [ (equal? (car CCond) 'or)   (or (semcomplexcond (cadr CCond) Env)
-                                     (semcomplexcond (cadr (cdr CCond)) Env)) ]
-    [ (equal? (car CCond) 'and)   (and (semcomplexcond (cadr CCond) Env)
-                                     (semcomplexcond (cadr (cdr CCond)) Env)) ]
-    [ (equal? (car CCond) 'not)   (not (semcomplexcond (cadr CCond) Env))
-                                      ]
-    [ else  (semboolcond CCond Env) ]))  ;; semantics of conditions: lt, gt
-
-; complete the definition
-(define (semboolcond BCond Env)
-  (cond
-    [ (equal? (car BCond) 'gt)  (> (semArith (cadr BCond) Env)
-                                   (semArith (cadr (cdr BCond)) Env)) ]
-    [ (equal? (car BCond) 'lt)  (< (semArith (cadr BCond) Env)
-                                   (semArith (cadr (cdr BCond)) Env)) ]
-    [ (equal? (car BCond) 'eq)  (equal? (semArith (cadr BCond) Env)
-                                        (semArith (cadr (cdr BCond)) Env)) ]))
 
 #| TESTS |#
-
-(define p01
-  `(
-    (fundecl (f (x)) (
-		       (assign y (+ x 1))
-		       )
-	      )
-    (decl y)
-    (call (f (0)) 1)
-    (assign y 1)
-    
-    (fundecl (f (z)) (
-		       (assign y (+ x 1))
-		       )
-             (fundecl (f (x)) (
-		       (assign y (+ x 1))
-		       )
-	      )
-	      )
-    (decl y)
-    (call (f (0)) 1)
-    (assign y 1)
-    )
-  )
-    
-
-
-
-(sem p0 `())  ;; ’((y 1) ((f (x)) ((assign y (+ x 1)))))
-;;(sem p01 `()) ; ((z f) (y 1) ((f (x)) ((assign y (+ x 1)))))
-
-(sem p1 `())
-(sem p2 `())
-(sem p3 `())
-(sem p4 `())
-(sem p5 `())
+(display "\nTest 0: ")(sem p0 `())  ;; ’((y 1) ((f (x)) ((assign y (+ x 1)))))
+(display "\nTest 1: ")(sem p1 `())
+(display "\nTest 2: ")(sem p2 `())
+(display "\nTest 3: ")(sem p3 `())
+(display "\nTest 4: ")(sem p4 `())
+(display "\nTest 5: ")(sem p5 `())
