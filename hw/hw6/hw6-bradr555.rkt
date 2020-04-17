@@ -23,45 +23,50 @@
         
 
     [(equal? (car S) `deref) (updateValue (cadr S) (doderef (findValue (third S) Env) Heap) Env)]
-    ; [ (equal? (car expr) 'deref) (cons (evaldref
-    ;                                     (findval(car(eval (second expr) env heap)))
-    ;                                     (second (eval (second expr) env heap)))
-    ;                                    (list (second (eval (second expr) env heap))))
-    [(equal? (car S) `ref) (updateValue (second S) (find_free Heap) Env) ]
-    [(equal? (car S) `free)  true]
-    [(equal? (car S) `wref)  true]
+    [(equal? (car S) `ref)   (updateValue (second S) (find_free Heap) Env) ]
+
+    ;[(equal? (car S) `wref)  true]   
+
+    
+    ;[(equal? (car S) `free)  true]
     [(equal? (car S) `anonf) true]
+    [else Env]
     )
   )
 
 (define (heap_ops S Env Heap)
   (cond
-    [(equal? (car S) `ref)(doref (second S) (semArith (third S) Env) Env Heap) ]
+    [(equal? (car S) `ref) (doref (second S) (semArith (third S) Env) Env Heap) ]
+    [(equal? (car S) `wref) (dowref (semArith (second S) Env) (semArith (third S) Env) Heap)]
+    [(equal? (car S) `free) Heap]
     [else Heap]
     )
   )
 
+(define (dowref loc val heap)
+  (if (equal? `fma (write_heap loc val heap))
+      `fma
+      (if (equal? `ooma (write_heap loc val heap))
+          `ooma
+          (write_heap loc val heap))))
+
+
+#| ############################################## DO DEREF ############################################################ |#
 ; return the value at loc
 (define (doderef loc heap)
   (if (null? heap)
-      `ooma
+      `ooma ; TODO -- this is wrong... but works if this isnt caught
       (if (equal? loc (car (car heap)))
           (if (equal? `free (second (car heap)))
-              `fma
+              `fma ; TODO -- this is wrong... but works if this isnt caught
               (second (car heap)))
           (doderef loc (cdr heap)))))
-
-
-  
-
-#| ############################################## DO REF############################################################ |#
+#| ############################################## DO REF ############################################################ |#
   (define (doref symb val env heap)
     (if (equal? `oom (find_free heap))
         (cons `oom (list heap)) ; RETURN oom and the heap -- TODO write exception stuff
         (write_free (find_free heap) val heap))) ; Return location and updated heap
-#| ################################################################################################################# |#
-#|TESTING |#
-(define heap1 `((1 free) (2 free)))
+
 #| ############################################### Working Helpers ################################################# |#
 
 ; Find the first occurance of a `free in the heap...
@@ -76,6 +81,20 @@
   (if (equal? loc (car (car heap)))
       (cons (list (car (car heap)) val) (cdr heap))
       (cons (car heap) (write_free loc val (cdr heap)))))
+
+
+(define (write_heap loc val heap)
+  (if (null? heap)
+      `ooma ;TODO
+      (if (equal? loc (car (car heap)))
+          (if (equal? `free (second (car heap)))
+              `fma ;TODO
+              (cons (list (car (car heap)) val) (cdr heap)))
+          (if (equal? `ooma (write_heap loc val (cdr heap)))
+              `ooma ;TODO
+              (if (equal? `fam (write_heap loc val (cdr heap)))
+                  `fma;TODO
+                  (cons (car heap) (write_heap loc val (cdr heap))))))))
 
 #| ################################################################################################################# |#
 
@@ -187,6 +206,14 @@
 (display "TESTS:\n")
 ; (sem program environment heap)
 (sem p0 `() `((1 free) (2 free)) )
-(display "\n==> `(((y 10) (x 1)) ((1 10) (2 free)))\n") 
+(display "==> `(((y 10) (x 1)) ((1 10) (2 free)))\n\n")
+
+(sem p0 `() `((1 20) (2 free)))
+(display "==> `(((y 10) (x 2)) ((1 20) (2 10)))\n\n")
+
+;(sem p0 `() `((1 20) (2 40)))
+;(display "==> `(((y 0) (x 0)) (oom))\n\n")
 
 
+(sem p1 `() `((1 free) (2 free)))
+(display "==> `(((y 30) (x 1)) ((1 free) (2 free)))\n\n")
