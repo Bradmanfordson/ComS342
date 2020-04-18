@@ -1,101 +1,124 @@
 #lang racket
-(require racket/trace)
-(provide (all-defined-out))
 (require "program.rkt")
+(provide (all-defined-out))
 
 
 ;; semantics of a program = semantics of rest of the program in the context of semantics of first statement
+;; HW6: Edited in order to properly handle a seperate Env and Heap
+;; basically, we're running semantics of a program statement on both the environment and heap seperately
+;; and updated each as needed
 (define (sem P Env Heap)
   (if (null? (cdr P))
-      (cons (semstmt (car P) Env Heap) (list (heap_ops (car P) Env Heap)))
+      (cons (semstmt (car P) Env Heap) (list (heap_ops (car P) Env Heap))) 
       (sem (cdr P) (semstmt (car P) Env Heap) (heap_ops (car P) Env Heap))))
 
 
+;; HW6: edited to include looking for exceptions and to pass heap stuff around
 (define (semstmt S Env Heap )
   (cond
+    ;; Exception handling, basically if an exception occurs it'll be written to the heap and basically
+    ;; keeps any other code from executing once an exception happens
+    [ (equal? (car Heap) `oom) Env]
+    [ (equal? (car Heap) `ooma) Env]
+    [ (equal? (car Heap) `fma) Env]
     [ (equal? (car S) 'decl)   (cons (list (cadr S) 0) Env) ]
     [ (equal? (car S) 'assign) (updateValue (cadr S)(semArith (cadr (cdr S)) Env) Env) ]
-    [ (equal? (car S) 'if)  (removemarker (semIf (semcomplexcond (cadr S) Env)(cadr (cdr S))(cons (list '$m 0) Env))) ]
+    [ (equal? (car S) 'if)  (removemarker (car (semIf (semcomplexcond (cadr S) Env)(cadr (cdr S))(cons (list '$m 0) Env) Heap))) ]
     [ (equal? (car S) 'while) (if (semcomplexcond (cadr S) Env)(sem (list (list 'if '(eq 1 1) (cadr (cdr S))) S)Env Heap) Env) ]    
     [ (equal? (car S) 'fundecl) (cons (list (cadr S) (cadr (cdr S))) Env) ]
-    [ (equal? (car S) 'call)  (removemarker (semcall(findDef (car (cadr S)) (length (cadr (cadr S))) Env Env)(semArithList (cadr (cadr S)) Env))) ]
-     
-    [(equal? (car S) `deref) (updateValue (cadr S) (doderef (findValue (third S) Env) Heap) Env)]
-    [(equal? (car S) `ref)   (updateValue (second S) (find_free Heap) Env) ]
+    [ (equal? (car S) 'call)  (removemarker (car (semcall(findDef (car (cadr S)) (length (cadr (cadr S))) Env Env)(semArithList (cadr (cadr S)) Env) Heap))) ]
+
+    ;; deref logic to update the environment
+    [(equal? (car S) `deref) (if (or (equal? (list `ooma) (doderef (findValue (third S) Env) Heap))
+                                     (equal? (list `fma) (doderef (findValue (third S) Env) Heap)))
+                                     Env
+                                     (updateValue (cadr S) (doderef (findValue (third S) Env) Heap) Env))]
+    ;; ref logic to update the environment
+    [(equal? (car S) `ref)   (if (equal? (find_free Heap) `oom)
+                                 Env
+                                 (updateValue (second S) (find_free Heap) Env)) ]
     [else Env]
     )
   )
 
+;; semstmt but for heap operations
 (define (heap_ops S Env Heap)
   (cond
-    [(equal? (car S) `ref) (doref (second S) (semArith (third S) Env) Env Heap) ]
-    [(equal? (car S) `wref) (dowref (semArith (second S) Env) (semArith (third S) Env) Heap)]
-    [(equal? (car S) `free) (dofree (semArith (second S) Env) Heap)]
+    [ (equal? (car Heap) `oom) Heap]
+    [ (equal? (car Heap) `ooma) Heap]
+    [ (equal? (car Heap) `fma) Heap]
+    [(equal? (car S) `ref)   (doref (second S) (semArith (third S) Env) Env Heap) ]
+    [(equal? (car S) `wref)  (dowref (semArith (second S) Env) (semArith (third S) Env) Heap)]
+    [(equal? (car S) `free)  (dofree (semArith (second S) Env) Heap)]
+    [(equal? (car S) `deref) (if (equal? (list `ooma) (doderef (findValue (third S) Env) Heap))
+                                 (list `ooma)
+                                 (if (equal? (list `fma) (doderef (findValue (third S) Env) Heap))
+                                     (list `fma)
+                                     Heap))]
+    ;; Added this because the heap wasn't being properly updated, by doing this, it is
+    [ (equal? (car S) 'call)  (car (cdr (semcall(findDef (car (cadr S)) (length (cadr (cadr S))) Env Env)(semArithList (cadr (cadr S)) Env) Heap))) ]
+
     [else Heap]
     )
   )
+#| WORKING HELPERS for HW6, hopefully exceptions are actually working properly, seem to be from tests |#
 
-
-#| WORKING HELPERS |#
-
-; Find the first occurance of a `free in the heap...
 (define (find_free heap)
   (if (null? heap)
-      (cons `oom)
+      `oom
       (if (equal? `free (second (car heap)))
           (car (car heap))
           (find_free (cdr heap)))))
 
 (define (write_loc loc val heap)
-  (if (equal? loc (car (car heap)))
-      (cons (list (car (car heap)) val) (cdr heap))
-      (cons (car heap) (write_loc loc val (cdr heap)))))
+  (if (null? heap)
+      (list `ooma)
+      (if (equal? loc (car (car heap)))
+          (cons (list (car (car heap)) val) (cdr heap))
+          (cons (car heap) (write_loc loc val (cdr heap)))))
+  )
 
 (define (write_heap loc val heap)
   (if (null? heap)
-      (cons `ooma) ;TODO
+      (list `ooma)
       (if (equal? loc (car (car heap)))
           (if (equal? `free (second (car heap)))
-              (cons `fma) ;TODO
+              (list `fma) 
               (cons (list (car (car heap)) val) (cdr heap)))
           (if (equal? `ooma (write_heap loc val (cdr heap)))
-              (cons `ooma) ;TODO
+              (list `ooma) 
               (if (equal? `fam (write_heap loc val (cdr heap)))
-                  (cons `fma);TODO
+                  (list `fma)
                   (cons (car heap) (write_heap loc val (cdr heap))))))))
 
-
-#| ###################################################################### |#
-
-#| HW6 |#
 (define (dofree loc heap)
-  (if (equal? 'fma (write_loc loc `free heap))
-      (cons `fma)
-      (if (equal? `ooma (write_loc loc `free heap))
-          (cons `ooma)
-          (write_loc loc `free heap))))
+  (if (equal? (list (car heap) `fma) (write_heap loc `free heap))
+      (list `fma)
+      (if (equal? (write_heap loc `free heap)  (list (car heap )`ooma) )
+          (list `ooma)
+          (write_heap loc `free heap))))
 
 (define (dowref loc val heap)
-  (if (equal? `fma (write_heap loc val heap))
-      (cons `fma)
-      (if (equal? `ooma (write_heap loc val heap))
-          (cons `ooma)
+  (if (equal? (list `fma) (write_heap loc val heap))
+      (list `fma)
+      (if (equal? (list `ooma) (write_heap loc val heap))
+          (list `ooma)
           (write_heap loc val heap))))
 
-; return the value at loc
 (define (doderef loc heap)
   (if (null? heap)
-      (cons `ooma) ; TODO -- this is wrong... but works if this isnt caught
+      (list `ooma) ; 
       (if (equal? loc (car (car heap)))
           (if (equal? `free (second (car heap)))
-              (cons `fma) ; TODO -- this is wrong... but works if this isnt caught
+              (list `fma)
               (second (car heap)))
           (doderef loc (cdr heap)))))
 
+
 (define (doref symb val env heap)
   (if (equal? `oom (find_free heap))
-      (cons `oom) ; RETURN oom and the heap -- TODO write exception stuff
-      (write_loc (find_free heap) val heap))) ; Return location and updated heap
+      (list `oom) 
+      (write_loc (find_free heap) val heap)))
 
 #| ###################################################################### |#
 
@@ -120,8 +143,6 @@
           ;; else continue with the search search in the rest of the environment
           (findDef fname nParams (cdr EnvtoRec) Env))))
 
-
-#| ADDED for hw5  create an addition to the enviroment using the parameters-Argvals |#
 (define (genEnv Params Args Env)
   (if (null? Params)
       Env
@@ -138,11 +159,12 @@
  ParamsDef is a list containing (ParameterList Definition)
  Args is a list of argument values
 |#
-(define (semcall ParamsDefEnv Args)
+(define (semcall ParamsDefEnv Args Heap)
   (sem (cadr ParamsDefEnv)        ;; semantics of the definition 
        (genEnv (car ParamsDefEnv) ;; genEnv creates the environment by adding mapping of params to argval
                Args
-               (cadr (cdr ParamsDefEnv)))))
+               (cadr (cdr ParamsDefEnv)))
+       Heap))
 
 
 (define (findValue v Env) ;; update to make room for function names being assigned to variables; they do not
@@ -155,15 +177,15 @@
 
 #| The addendum for the function calls ends here |#
 
-(define (semIf condVal SSeq Env)
+(define (semIf condVal SSeq Env Heap)
   (if condVal
-      (sem SSeq Env)
+      (sem SSeq Env Heap)
       Env))
 
 (define (removemarker Env)
-  (if (equal? (car (car Env)) '$m)
-      (cdr Env)
-      (removemarker (cdr Env))))
+      (if (equal? (car (car Env)) '$m)
+          (cdr Env)
+          (removemarker (cdr Env))))
 
 
 (define (updateValue v val Env)
@@ -180,11 +202,11 @@
     [ (equal? (car Expr) '-)  (- (semArith (cadr Expr) Env) (semArith (cadr (cdr Expr)) Env)) ]
     [ (equal? (car Expr) '*)  (* (semArith (cadr Expr) Env) (semArith (cadr (cdr Expr)) Env)) ]
     [ (equal? (car Expr) '/)  (/ (semArith (cadr Expr) Env) (semArith (cadr (cdr Expr)) Env)) ]
-    #| ADDED for hw5: anonymous functions |#
     [ (equal? (car Expr) 'anonf) (semanon (car (cadr Expr))
                                           (cadr (cadr Expr))
                                           (semArithList (cadr (cdr Expr)) Env)
                                           Env) ] ))
+
 
 (define (semanon ParamList Expr ArgList Env) (semArith Expr (genEnv ParamList ArgList Env)))
 
@@ -202,144 +224,4 @@
     [ (equal? (car BCond) 'lt)  (< (semArith (cadr BCond) Env) (semArith (cadr (cdr BCond)) Env)) ]
     [ (equal? (car BCond) 'eq)  (equal? (semArith (cadr BCond) Env) (semArith (cadr (cdr BCond)) Env)) ]))
 
-
-
-#| Tests |#
-(display "TESTS:\n")
-; (sem program environment heap)
-(sem p0 `() `((1 free) (2 free)) )
-(display "==> `(((y 10) (x 1)) ((1 10) (2 free)))\n\n")
-
-(sem p0 `() `((1 20) (2 free)))
-(display "==> `(((y 10) (x 2)) ((1 20) (2 10)))\n\n")
-
-;(sem p0 `() `((1 20) (2 40)))
-;(display "==> `(((y 0) (x 0)) (oom))\n\n")
-
-
-(sem p1 `() `((1 free) (2 free)))
-(display "==> `(((y 30) (x 1)) ((1 free) (2 free)))\n\n")
-
-;(sem p5 `() `((1 free)))
-;(display "==> `(((x 0)) (ooma))\n\n")
-
-;(sem p6 `() `((1 free)))
-;(display "==> `(((x 0)) (fma))\n\n")
-
-;(sem p2 `() `((1 20) (2 500)))
-
-
-
-(define t1
-  '(
-    (decl x)
-    (decl t)
-    (assign t 1)
-    (fundecl (f (y)) (
-                      (assign y (+ x y))
-                      (deref x y)
-                      ))
-    (while (lt t 3) (
-                     (call (f (t)) 1)
-                     (assign t (+ t 1))
-                     ))
-    )
-  )
-
-;(sem t1 `() `((1 free)))
-;; '() '((1 2) (4 5))  =>  '((((f (y)) ((assign y (+ x y)) (deref x y))) (t 3) (x 5)) ((1 2) (4 5)))
-;; '() '((1 free)) => '((((f (y)) ((assign y (+ x y)) (deref x y))) (t 1) (x 0)) (fma))
-;; '() '((1 5)) => '((((f (y)) ((assign y (+ x y)) (deref x y))) (t 2) (x 5)) (ooma))
-
-(define t2
-  '(
-    (decl x)
-    (assign x 5)
-    (ref x (+ x x))
-    )
-  )
-
-(sem t2 `() `((1 free)))
-(sem t2 `() '((1 10) (2 free) (3 free)))
-;(sem t2 '() '((1 10) (2 5) (3 1)))
-;; '() '((1 free)) => '(((x 1)) ((1 10)))
-;; '() '((1 10) (2 free) (3 free)) => '(((x 2)) ((1 10) (2 10) (3 free))
-;; '() '((1 10) (2 5) (3 1)) => '(((x 5)) (oom))
-
-(define t3
-  '(
-    (decl x)
-    (assign x 1)
-    (decl y)
-    (assign y 4)
-    (while (lt x y) (
-                     (wref x (+ x y))
-                     (assign x (+ x 1))
-                     ))
-    )
-  )
-
-;(sem t3 '() '((1 0) (2 0) (3 0)));
-;; '() '((1 0) (2 0) (3 0)) => '(((y 4) (x 4)) ((1 5) (2 6) (3 7)))
-;; '() '((1 0) (2 0) (3 free)) => '(((y 4) (x 3)) (fma))
-;; '() '((1 0)) => '(((y 4) (x 2)) (ooma))
-
-(define t4
-  '(
-    (decl x)
-    (decl y)
-    (assign y 1)
-    (while (lt x 4) (
-                     (free (+ x y))
-                     (assign x (+ x 1))
-                     )
-           )
-    )
-  )
-;(sem t4 '() '((1 0) (2 free) (3 5) (4 100)))
-;; '() '((1 0) (2 free) (3 5) (4 100)) => '(((y 1) (x 4)) ((1 free) (2 free) (3 free) (4 free)))
-;; '() '((1 0) (2 free)) => '(((y 1) (x 2)) (ooma))
-
-(define t5
-  '(
-    (decl x)
-    (fundecl (f (y)) (
-                      (ref x (* y y))
-                      ))
-    (decl y)
-    (assign y 1)
-    (while (lt x 5) (
-                     (call (f (y)) 1)
-                     (assign y (+ y 1))
-                     ))))
-;; '() '((1 free) (2 free) (3 free) (4 free) (5 free)) => '(((y 6) ((f (y)) ((ref x (* y y)))) (x 5)) ((1 1) (2 4) (3 9) (4 16) (5 25)))
-;; '() '((1 10) (2 3) (3 23) (4 1) (5 free)) => '(((y 2) ((f (y)) ((ref x (* y y)))) (x 5)) ((1 10) (2 3) (3 23) (4 1) (5 1)))
-;; '() '((1 free)) => '(((y 2) ((f (y)) ((ref x (* y y)))) (x 1)) (oom))
-
-(define t6
-  '(
-    (fundecl (func (z)) (
-                         (decl temp)
-                         (ref temp 0)
-                         (wref z temp)
-                         ))
-    (call (func (y)) 1)
-    (call (func (x)) 1)
-    (call (func (t)) 1)
-    )
-  )
-;; '((y 1) (x 5) (t 10)) '((1 5) (2 free) (3 free) (5 6) (6 free) (10 7)) => '((((func (z)) ((decl temp) (ref temp 0) (wref z temp))) (y 1) (x 5) (t 10)) ((1 2) (2 0) (3 0) (5 3) (6 0) (10 6)))
-
-(define t7
-  '(
-    (decl x)
-    (assign x 6)
-    (ref x (* x x))
-    (deref x (+ x 2))
-    (wref x (* x x))
-    (free (* (* x x) x))
-    )
-  )
-;(sem t7 '() '((2 0) (4 free) (6 2) (8 10)))
-;; '() '((2 0) (4 free) (6 2) (8 10)) => '(((x 2)) ((2 4) (4 36) (6 2) (8 free))
 
